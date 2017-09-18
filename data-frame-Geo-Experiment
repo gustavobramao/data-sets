@@ -1,0 +1,11 @@
+#Create a data frame for an randomized Paid Search GEO Experiment 
+
+cities <- c('1','2','3', '4')
+
+paid.search <- c(1,1,0,0)
+
+outcome.under.paid <- c("OK", "OK",  "?",  "?")
+
+outcome.under.no.paid <- c("?", "?", "OK", "OK")
+
+casual.inferance <- data.frame(cities,paid.search,outcome.under.paid, outcome.under.no.paid)
