@@ -1,4 +1,4 @@
-#Create a data frame for an randomized Paid Search GEO Experiment 
+#Understand the framework for Geo Experiment
 
 cities <- c('1','2','3', '4')
 
@@ -11,3 +11,39 @@ outcome.under.no.paid_Y0 <- c("?", "?", "OK", "OK")
 covariatesX <- c("OK", "OK", "OK", "OK")
 
 casual.inferance <- data.frame(cities,paid.search,outcome.under.paid_Y1, outcome.under.no.paid_Y0, covariatesX)
+
+#Extract predictors that are correlated time series by batch GA API process.
+
+library("formattable")
+library("googleAnalyticsR")
+library("devtools")
+library("RGA")
+
+ga_auth()
+
+ga_data <- get_mcf('108643485', start.date = "2017-01-01", 
+                   end.date = "2017-09-19" , metrics = "mcf:totalConversions,mcf:totalConversionValue", 
+                   dimensions = "mcf:conversionDate",
+                   filters="mcf:conversionType==Transaction")
+                   
+#Things get serious
+
+library(CausalImpact)
+
+# Working with dates and times
+
+time.points <- seq.Date(as.Date("2017-05-01"), by = 1, length.out = 100)
+data <- zoo(cbind(totalConversions, totalConversionValue), time.points)
+head(data)
+
+# Train the model and estimate the counterfactual.
+
+pre.period <- as.Date(c("2014-01-01", "2014-03-11"))
+post.period <- as.Date(c("2014-03-12", "2014-04-10"))
+
+impact <- CausalImpact(data, pre.period, post.period)
+plot(impact)
+
+#Posterior inference {CausalImpact}
+
+summary(impact)
