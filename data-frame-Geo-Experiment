@@ -21,7 +21,7 @@ library("RGA")
 
 ga_auth()
 
-ga_data <- get_mcf('108643485', start.date = "2017-01-01", 
+ga_data <- get_mcf('xxxxx', start.date = "2017-01-01", 
                    end.date = "2017-09-19" , metrics = "mcf:totalConversions,mcf:totalConversionValue", 
                    dimensions = "mcf:conversionDate",
                    filters="mcf:conversionType==Transaction")
