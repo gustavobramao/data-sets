@@ -1,17 +1,3 @@
-#Understand the framework for Geo Experiment
-
-cities <- c('1','2','3', '4')
-
-paid.search <- c(1,1,0,0)
-
-outcome.under.paid_Y1 <- c("OK", "OK",  "?",  "?")
-
-outcome.under.no.paid_Y0 <- c("?", "?", "OK", "OK")
-
-covariatesX <- c("OK", "OK", "OK", "OK")
-
-casual.inferance <- data.frame(cities,paid.search,outcome.under.paid_Y1, outcome.under.no.paid_Y0, covariatesX)
-
 #Extract predictors that are correlated time series by batch GA API process.
 
 library("formattable")
