@@ -1,6 +1,5 @@
 #Extract predictors that are correlated time series by batch GA API process.
 
-library("formattable")
 library("googleAnalyticsR")
 library("devtools")
 library("RGA")
