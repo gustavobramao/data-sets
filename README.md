@@ -1,2 +1,5 @@
-# data-sets contains mainly frameworks for GEO experiments in Paid Search and computing the casualimpact with Google R library
-As the test will be evolving I will be updating the code and data frames.
+# data-sets.
+
+Contains machine learning code that estimates the counterfactual based on predictors. (R Casual Impact)
+
+
