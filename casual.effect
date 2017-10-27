@@ -17,6 +17,7 @@ library(CausalImpact)
 
 # Working with dates and times
 
+attach(ga_data)
 time.points <- seq.Date(as.Date("2017-05-01"), by = 1, length.out = 100)
 data <- zoo(cbind(totalConversions, totalConversionValue), time.points)
 head(data)
