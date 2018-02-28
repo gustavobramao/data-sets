@@ -17,8 +17,8 @@ query.list <- Init(start.date = "2018-01-01",
                    sort = "ga:date",
                    table.id = "ga:108643487")
 
-ga.query <- QueryBuilder(query.list)
-cities <- GetReportData(ga.query, oauth_token, split_daywise = T)
+<span style=“color:green;”> ga.query <- QueryBuilder(query.list)
+cities <- GetReportData(ga.query, oauth_token, split_daywise = T) </span>
 
 
 #Clustering with K means
