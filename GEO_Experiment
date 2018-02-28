@@ -7,6 +7,8 @@ oauth_token <- Auth(client.id = "316220582645-fb4v63chq0bk0o1d9gqc5p90r8v8vksu.a
 
 ValidateToken(oauth_token)
 
+#Extract data from GA API
+
 query.list <- Init(start.date = "2018-01-01",
                    end.date = "2018-02-27",
                    dimensions = "ga:city,ga:date",
@@ -64,11 +66,14 @@ test.sessions <- subset(cities, city == "Aix-en-Provence"
 final.sessions <- aggregate(test.sessions$sessions, by=list(date=test.sessions$date), FUN=sum)
 colnames(final.sessions) <- c("date", "test_sessions")
 
+# build the data frame to perform regression
+
 data.f <- cbind.data.frame(final.control$date, final.control$control_sessions, final.sessions$test_sessions)
 colnames(data.f) <- c("date", "control", "test")
 
-library(CausalImpact)
+# Start modelling using causal impact
 
+library(CausalImpact)
 attach(data.f)
 
 time.points <- seq.Date(as.Date("2018-01-01"), by = 1, length.out = 58)
