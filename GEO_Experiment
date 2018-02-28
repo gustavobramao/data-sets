@@ -1,0 +1,99 @@
+install.packages("jsonlite")
+
+library(ggplot2)
+library(RGoogleAnalytics)
+library(scales)
+
+oauth_token <- Auth(client.id = "316220582645-fb4v63chq0bk0o1d9gqc5p90r8v8vksu.apps.googleusercontent.com", client.secret = "BvBCUzd7yK6WrMnT9Abz3iqd")
+
+
+ValidateToken(oauth_token)
+
+query.list <- Init(start.date = "2018-01-01",
+                   end.date = "2018-02-27",
+                   dimensions = "ga:city,ga:date",
+                   metrics = "ga:sessions",
+                   max.results = 10000,
+                   sort = "ga:date",
+                   table.id = "ga:108643487")
+
+ga.query <- QueryBuilder(query.list)
+cities <- GetReportData(ga.query, oauth_token, split_daywise = T)
+
+
+#Clustering with K means
+
+Control <- subset(France_reduced_clusters, cluster ==1)
+Test <- subset(France_reduced_clusters, cluster ==2)
+
+
+control.sessions <- subset(cities, city == "Amiens" 
+                           | city == "Dijon"
+                           | city == "Besancon"
+                           | city == "Lille"
+                           | city == "Nancy"
+                           | city == "Paris"
+                           | city == "Reims"
+                           | city == "Strasbourg")
+
+final.control <- aggregate(control.sessions$sessions, by=list(date=control.sessions$date), FUN=sum)
+colnames(final.control) <- c("date", "control_sessions")
+
+
+test.sessions <- subset(cities, city == "Aix-en-Provence" 
+                           | city == "Angers"
+                           | city == "Bordeaux"
+                           | city == "Brest"
+                           | city == "Caen"
+                           | city == "Clermont-Ferrand"
+                           | city == "Grenoble"
+                           | city == "Le Mans"
+                           | city == "Limoges"
+                           | city == "Lyon"
+                           | city == "Marseille"
+                           | city == "Montpellier"
+                           | city == "Nantes"
+                           | city == "Nice"
+                           | city == "Nimes"
+                           | city == "Orleans"
+                           | city == "Poitiers"
+                           | city == "Rennes"
+                           | city == "Rouen"
+                           | city == "Saint-Etienne"
+                           | city == "Toulouse"
+                           | city == "Tours")
+                         
+final.sessions <- aggregate(test.sessions$sessions, by=list(date=test.sessions$date), FUN=sum)
+colnames(final.sessions) <- c("date", "test_sessions")
+
+data.f <- cbind.data.frame(final.control$date, final.control$control_sessions, final.sessions$test_sessions)
+colnames(data.f) <- c("date", "control", "test")
+
+library(CausalImpact)
+
+attach(data.f)
+
+time.points <- seq.Date(as.Date("2018-01-01"), by = 1, length.out = 58)
+data <- zoo(cbind(test, control), time.points)
+
+head(data)
+
+# Train the model and estimate the counterfactual.
+
+pre.period <- as.Date(c("2018-01-01", "2018-01-31"))
+
+# verify the model accuracy
+
+post.period <- as.Date(c("2018-02-01", "2018-02-06"))
+
+
+impact <- CausalImpact(data, pre.period, post.period)
+plot(impact)
+
+#Posterior inference {CausalImpact}
+
+summary(impact, "report")
+summary(impact)
+
+
+write.csv(data.f, file = "control_test.csv")
