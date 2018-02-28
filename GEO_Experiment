@@ -1,5 +1,3 @@
-install.packages("jsonlite")
-
 library(ggplot2)
 library(RGoogleAnalytics)
 library(scales)
