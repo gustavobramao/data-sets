@@ -86,7 +86,6 @@ pre.period <- as.Date(c("2018-01-01", "2018-01-31"))
 
 post.period <- as.Date(c("2018-02-01", "2018-02-06"))
 
-
 impact <- CausalImpact(data, pre.period, post.period)
 plot(impact)
 
@@ -95,5 +94,14 @@ plot(impact)
 summary(impact, "report")
 summary(impact)
 
+#Library machine learning evaluation metrics.
+library(MLmetrics)
+
+#Mean absolut percentage error
+
+actual <- 9884
+predicted <- 10011
+
+MAPE(predicted, actual)
 
 write.csv(data.f, file = "control_test.csv")
