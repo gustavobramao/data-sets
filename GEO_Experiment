@@ -2,7 +2,7 @@ library(ggplot2)
 library(RGoogleAnalytics)
 library(scales)
 
-oauth_token <- Auth(client.id = "316220582645-fb4v63chq0bk0o1d9gqc5p90r8v8vksu.apps.googleusercontent.com", client.secret = "BvBCUzd7yK6WrMnT9Abz3iqd")
+oauth_token <- Auth(client.id = "3", client.secret = "1)
 
 
 ValidateToken(oauth_token)
@@ -96,15 +96,3 @@ plot(impact)
 
 summary(impact, "report")
 summary(impact)
-
-#Library machine learning evaluation metrics.
-library(MLmetrics)
-
-#Mean absolut percentage error
-
-actual <- 9884
-predicted <- 10011
-
-MAPE(predicted, actual)
-
-write.csv(data.f, file = "control_test.csv")
