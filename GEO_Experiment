@@ -2,8 +2,8 @@ library(ggplot2)
 library(RGoogleAnalytics)
 library(scales)
 
-oauth_token <- Auth(client.id = "3", client.secret = "1)
-
+oauth_token <- Auth(client.id = "611777209411-1hmrctituiru63li4hs9421s7nu40vhu.apps.googleusercontent.com", client.secret = "xQwzjzuo9VLMRjB9cRTfrQ1u")
+ValidateToken(oauth_token)
 
 ValidateToken(oauth_token)
 
