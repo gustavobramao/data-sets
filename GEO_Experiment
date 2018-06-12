@@ -97,4 +97,5 @@ plot(impact)
 summary(impact, "report")
 summary(impact)
 
+# In case of multiple predictors.
 plot(impact$model$bsts.model, "coefficients")
