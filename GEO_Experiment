@@ -96,3 +96,5 @@ plot(impact)
 
 summary(impact, "report")
 summary(impact)
+
+plot(impact$model$bsts.model, "coefficients")
