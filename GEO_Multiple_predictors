@@ -1,0 +1,144 @@
+library(ggplot2)
+library(RGoogleAnalytics)
+library(scales)
+
+oauth_token <- Auth(client.id = "611777209411-1hmrctituiru63li4hs9421s7nu40vhu.apps.googleusercontent.com", client.secret = "xQwzjzuo9VLMRjB9cRTfrQ1u")
+ValidateToken(oauth_token)
+
+
+#Extract data from GA API
+
+query.list <- Init(start.date = "2018-05-01",
+                   end.date = "2018-06-01",
+                   dimensions = "ga:city,ga:date",
+                   metrics = "ga:sessions,ga:transactions,ga:users",
+                   max.results = 10000,
+                   sort = "ga:date",
+                   table.id = "ga:108643487")
+
+ga.query <- QueryBuilder(query.list)
+cities <- GetReportData(ga.query, oauth_token, split_daywise = T)
+
+
+#Clustering with K means
+
+
+control_query <- subset(cities, city == "Amiens" 
+                           | city == "Dijon"
+                           | city == "Besancon"
+                           | city == "Lille"
+                           | city == "Nancy"
+                           | city == "Paris"
+                           | city == "Reims"
+                           | city == "Strasbourg")
+
+#Create different predictors
+
+c_q <- aggregate(control_query$sessions, by=list(date=control_query$date), FUN=sum)
+c_q1 <- aggregate(control_query$transactions, by=list(date=control_query$date), FUN=sum) 
+c_q2 <- aggregate(control_query$users, by=list(date=control_query$date), FUN=sum)
+
+#Rename columns
+
+colnames(c_q) <- c("date", "Y_sessions")
+colnames(c_q1) <- c("date", "X_transactions")
+colnames(c_q2) <- c("date", "X_users")
+
+#merge predictors into control group.
+
+c_group <- merge(c_q, c_q1, by="date")
+control_group <- merge(c_group, c_q2, by="date")
+
+
+
+#Test Group
+
+
+
+test_query <- subset(cities, city == "Aix-en-Provence" 
+                        | city == "Angers"
+                        | city == "Bordeaux"
+                        | city == "Brest"
+                        | city == "Caen"
+                        | city == "Clermont-Ferrand"
+                        | city == "Grenoble"
+                        | city == "Le Mans"
+                        | city == "Limoges"
+                        | city == "Lyon"
+                        | city == "Marseille"
+                        | city == "Montpellier"
+                        | city == "Nantes"
+                        | city == "Nice"
+                        | city == "Nimes"
+                        | city == "Orleans"
+                        | city == "Poitiers"
+                        | city == "Rennes"
+                        | city == "Rouen"
+                        | city == "Saint-Etienne"
+                        | city == "Toulouse"
+                        | city == "Tours")
+
+
+
+#Create different predictors
+
+t_q <- aggregate(test_query$sessions, by=list(date=test_query$date), FUN=sum)
+t_q1 <- aggregate(test_query$transactions, by=list(date=test_query$date), FUN=sum) 
+t_q2 <- aggregate(test_query$users, by=list(date=test_query$date), FUN=sum)
+
+#Rename columns
+
+colnames(t_q) <- c("date", "Y_sessions")
+colnames(t_q1) <- c("date", "X_transactions")
+colnames(t_q2) <- c("date", "X_users")
+
+#merge predictors into control group.
+
+t_group <- merge(t_q, t_q1, by="date")
+test_group <- merge(t_group, t_q2, by="date")
+
+
+
+# build the data frame to perform regression
+
+data.f <- cbind.data.frame(control_group$date, control_group$Y_sessions, control_group$X_transactions, 
+                           control_group$X_users,
+                           test_group$Y_sessions)
+                           
+
+colnames(data.f) <- c("date", "c_sessions", "c_transactions", "c_users",
+                      "t_sessions")
+
+# Start modelling using causal impact
+
+library(CausalImpact)
+attach(data.f)
+
+time.points <- seq.Date(as.Date("2018-05-01"), by = 1, length.out = 32)
+data <- zoo(cbind(t_sessions, c_sessions, c_transactions, c_users), time.points)
+
+head(data)
+
+# Train the model and estimate the counterfactual.
+
+pre.period <- as.Date(c("2018-05-01", "2018-05-15"))
+
+# verify the model accuracy
+
+post.period <- as.Date(c("2018-05-16", "2018-06-01"))
+
+impact <- CausalImpact(data, pre.period, post.period, model.args = list(nseasons = 7, season.duration = 1, standardize.data = TRUE, prior.level.sd = 3401))
+plot(impact)
+
+#Posterior inference {CausalImpact}
+
+plot(impact$model$bsts.model, "coefficients")
+
+summary(impact, "report")
+summary(impact)
+
+
+impact$summary
+
+
+write.csv(data.f, file="data.f.csv")
