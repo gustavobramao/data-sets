@@ -1,0 +1,66 @@
+install.packages("RGA")
+library(RGA)
+authorize()
+ga_profiles <- list_profiles()
+# choose the profile ID by site URL
+id <- ga_profiles[grep("http://example.com", ga_profiles$website.url), "id"]
+
+ga_data <- get_ga("147650887", start.date = "2018-03-01", end.date = "2018-06-15",
+                  metrics = "ga:sessions",
+                  dimensions = "ga:channelGrouping,ga:date")
+
+## isolate response variable 
+
+direct <- subset(ga_data, channelGrouping == "Direct") 
+social <- subset(ga_data, channelGrouping == "Social") 
+
+## clean and sum it
+
+ga_a <- merge(direct, social, by.x = "date" , by.y = "date", all.x = TRUE)
+ga_a$sum <- rowSums(ga_a[, c(3, 5)])
+ga_21_y<- ga_a[,c("date","sum")]
+
+## isolate predictors not impacted by intervention x
+
+SEO <- subset(ga_data, channelGrouping == "Organic Search") 
+Paid <- subset(ga_data, channelGrouping == "Paid Search") 
+Display <- subset(ga_data, channelGrouping == "Display") 
+
+SP <- merge(SEO, Paid, by.x = "date" , by.y = "date", all.x = TRUE)
+Predictors <- merge(SP, Display, by.x = "date" , by.y = "date", all.x = TRUE)
+colnames(Predictors) <- c("date", "SEO", "SEO_sess", "Paid", "Paid_sess", "Dispaly", "Display_sess")
+ga_21_x<- Predictors[,c("date","SEO_sess", "Paid_sess", "Display_sess")]
+
+## set up causal impact data frame y and x
+
+data_f <- merge(ga_21_y, ga_21_x, by.x = "date" , by.y = "date", all.x = TRUE)
+colnames(data_f) <- c("date", "y_21buttons", "x1_SEO", "x2_Paid", "x3_Display")
+
+## Causal inference using causalimpact
+
+library(CausalImpact)
+attach(data_f)
+
+time.points <- seq.Date(as.Date("2018-03-01"), by = 1, length.out = 106)
+data <- zoo(cbind(y_21buttons, x1_SEO, x2_Paid, x3_Display), time.points)
+
+head(data)
+
+# Train the model and estimate the counterfactual.
+
+pre.period <- as.Date(c("2018-03-01", "2018-05-01"))
+
+# verify the model accuracy
+
+post.period <- as.Date(c("2018-05-02", "2018-06-15"))
+
+impact <- CausalImpact(data, pre.period, post.period, model.args = NULL)
+plot(impact)
+
+
+plot(impact$model$bsts.model, "coefficients")
+
+summary(impact, "report")
+summary(impact)
+
+E <- impact$summary
