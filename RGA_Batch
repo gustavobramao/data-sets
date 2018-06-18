@@ -1,0 +1,17 @@
+install.packages("RGA")
+library(RGA)
+
+## Not run:
+# load package
+library(RGA)
+# get access token
+authorize()
+# get a GA profiles
+ga_profiles <- list_profiles()
+# choose the profile ID by site URL
+id <- ga_profiles[grep("http://example.com", ga_profiles$website.url), "id"]
+
+ga_data <- get_ga("147650887", start.date = "2018-03-01", end.date = "2018-06-15",
+                  metrics = "ga:sessions",
+                  dimensions = "ga:channelGrouping,ga:date")
+## End(Not run)
