@@ -1,9 +1,5 @@
-install.packages("RGA")
 library(RGA)
 authorize()
-ga_profiles <- list_profiles()
-# choose the profile ID by site URL
-id <- ga_profiles[grep("http://example.com", ga_profiles$website.url), "id"]
 
 ga_data <- get_ga("147650887", start.date = "2018-03-01", end.date = "2018-06-15",
                   metrics = "ga:sessions",
@@ -64,3 +60,13 @@ summary(impact, "report")
 summary(impact)
 
 E <- impact$summary
+
+#Onnly21
+
+ga_data21 <- get_ga("147650887", start.date = "2018-03-01", end.date = "2018-06-15",
+                  metrics = "ga:sessions",
+                  dimensions = "ga:channelGrouping,ga:date",
+                  filters = "ga:sourceMedium=~21b",
+                  fetch.by   = "day")
+
+write.csv(ga_data, file = "21b.csv")
