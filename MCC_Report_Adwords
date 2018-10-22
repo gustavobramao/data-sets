@@ -1,0 +1,36 @@
+function main() {
+    var accountIterator = MccApp.accounts().get(); // selects all child accounts under this MCC account
+    var SPREADSHEET_URL = "https://docs.google.com/spreadsheets/d/14VFV8iqJBX6-dOLFiYRWM--1uK14ZAdKvaXuv-bkWmk/edit?usp=sharing";
+    var account = AdWordsApp.currentAccount(); // This line is not necessary as you are already using MccApp to select the current account
+    var spreadsheet = SpreadsheetApp.openByUrl(SPREADSHEET_URL);
+
+    var accountCounter = 0;
+    while (accountIterator.hasNext()) {
+        var account = accountIterator.next();
+
+        MccApp.select(account); // selects the current account to generate report from
+
+
+        var report = AdWordsApp.report(
+    "SELECT Date, CampaignId, CampaignName, AdGroupId, KeywordId, Query, Cost " +
+    "FROM   SEARCH_QUERY_PERFORMANCE_REPORT " +
+    "DURING LAST_7_DAYS");
+  
+  var rows = report.rows();
+while (rows.hasNext()) {
+    var row = rows.next();
+   
+}
+
+        if (accountCounter == 0) { // if first account, use the default active sheet
+            spreadsheet.renameActiveSheet(account.getName()) // renames the default active sheet to the child account's name (You may rename sheets based on your requirement)
+            report.exportToSheet(spreadsheet.getActiveSheet());
+        } else {
+            report.exportToSheet(spreadsheet.insertSheet(account.getName())); // adds a new sheet with the account's name as sheet name (You may rename sheets based on your requirement)
+        }
+
+        Logger.log(account.getName() + ": Exporting successful");
+
+        accountCounter++; // increment counter
+    }
+}
