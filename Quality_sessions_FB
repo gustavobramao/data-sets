@@ -1,0 +1,75 @@
+{
+    "exportFormatVersion": 2,
+    "exportTime": "2018-07-19 12:16:14",
+    "containerVersion": {
+        "path": "accounts/2007725075/containers/9371098/versions/27",
+        "accountId": "2007725075",
+        "containerId": "9371098",
+        "containerVersionId": "27",
+        "name": "V6 Bershka",
+        "container": {
+            "path": "accounts/2007725075/containers/9371098",
+            "accountId": "2007725075",
+            "containerId": "9371098",
+            "name": "Sessions",
+            "publicId": "GTM-5GF84P8",
+            "usageContext": [
+                "WEB"
+            ],
+            "fingerprint": "1532002297020",
+            "tagManagerUrl": "https://tagmanager.google.com/#/container/accounts/2007725075/containers/9371098/workspaces?apiLink=container"
+        },
+        "tag": [
+            {
+                "accountId": "2007725075",
+                "containerId": "9371098",
+                "tagId": "18",
+                "name": "fb_QualitySession",
+                "type": "html",
+                "parameter": [
+                    {
+                        "type": "TEMPLATE",
+                        "key": "html",
+                        "value": "<script>\n  var hostdomain='mydomain'; //eg., if website is www.mydomain.com , use 'mydomain'\n  var fb_event_name='Lead'; //Standard event you don't use: 'AddToWishlist', 'Lead', etc.\n  var fb_pixel_id='395108407337683'; //IMPORTANT: Uncomment Line 181 if you use multiple FB pixels\n  \n  var cookieSource='fb_sessionSource';\n  var cookieSourcePaid='fb_sessionSourcePaid';\n  var cookieDwell='fb_sessionDwell';\n  var cookieQuality='fb_sessionQuality';\n  \n  \n  // UDF functions\n  function session_getCookie(name)\n  {\n    var cookies = document.cookie.split(\";\"),\n        toReturn;\n\n    for (var i = 0; i < cookies.length; i++)\n    {\n      var cookie = cookies[i].trim();\n      if (cookie.indexOf(name + \"=\") === 0)\n      {\n        toReturn = cookie.substring((name + \"=\").length, cookie.length);\n      }\n    }\n    return toReturn;\n  };\n  \n  function session_createCookie(name,value)\n  {\n  \tvar expires = new Date(+(new Date) + 1800000).toUTCString();\n  \tdocument.cookie = name+\"=\"+value+\"; expires=\"+expires+\"; path=/\";\n  };\n  \n  \n  function session_updateCookie(name, value)\n  {\n\tvar expires = new Date(+(new Date) + 1800000).toUTCString();\n\tdocument.cookie= name + \"=\" +value+\"; expires=\"+expires+\"; path=/\";\n  };\n  \n  \n  // Define and store session traffic source\n  function session_defineSource()\n  {\n    if (typeof session_getCookie(cookieSource)==='undefined')\n    {\n      var url = window.location.href;\n      var valSource='';\n      var valSourcePaid='';\n\n      // Check if session comes from a paid source\n      var key = 'utm_source';\n      var re_gclid = new RegExp(\"(.*gclid.*)\");\n      \n      if(url.indexOf(key + '=') > -1)\n      {\n          valSourcePaid = url.substr(url.indexOf(key + '=') + key.length + 1).split('&')[0];\n      }\n      else if (re_gclid.test({{Referrer}}))\n      {\n        valSourcePaid = 'adwords';\n      }\n      else {\n        valSourcePaid='free';\n      }\n      \n      session_createCookie(cookieSourcePaid,valSourcePaid);\n\n      // Create a homogeneous session source\n      if (valSourcePaid!='free')\n      {\n        valSource='paid';\n      }\n      else\n      {\n        var re_organic = new RegExp(\"(.*google.*|.*bing.*)\");\n        var re_referral = new RegExp(\"^((?!\"+hostdomain+\").)*$\");\n        var re_null= new RegExp(\"^$\");\n\n        if (re_organic.test({{Referrer}}))\n        {\n          valSource='organic';\n        }\n        else if (re_null.test({{Referrer}}))\n        {\n          valSource='direct';\n        }\n        else if (re_referral.test({{Referrer}}))\n        {\n          valSource='referral';\n        }\n        else\n        {\n          valSource='internal';\n        }  \n      }\n      session_createCookie(cookieSource,valSource);\n    }\n  };\n  \n  // Update session dwell times\n  (function()\n   {var startEngage = new Date().getTime();\n    var timeEngaged = 0;\n    var idleTime = 0;\n    var idle = true;\n    var idleReport = false;\n    var limitIdle=2000;\n    var limitReport=5000;\n    var idleTimer, reportTimer;\n    \n    // call function for source\n    session_defineSource();\n\n    // Set the user as idle, and calculate nonIdle time\n    var setIdle = function()\n    {\n      idleTime = new Date().getTime();\n      timeEngaged += idleTime - startEngage;\n      idle = true;\n    };\n\n    // Reset idle timer. If user was idle, start non-idle timer\n    var pulse = function(evt)\n    {\n      if (idle)\n      {\n        idle = false;\n        startEngage = new Date().getTime();\n        idleReport = false;\n      }\n      window.clearTimeout(idleTimer);\n      idleTimer = window.setTimeout(setIdle, limitIdle); \n    };    \n\n    //  Utility function for attaching listeners to the window\n    var addListener = function(evt, cb)\n    {\n      if (window.addEventListener)\n      {\n        window.addEventListener(evt, cb);\n      }\n      else if (window.attachEvent)\n      {\n        window.attachEvent('on' + evt, cb);\n      }\n    };\n\n    // LOOP START\n    // Refresh dwell times regularly or under page changes\n    var report = function(evt)\n    {\n      if (typeof session_getCookie(cookieQuality)==='undefined')\n      {\n        if (!idle)\n        {\n          timeEngaged += new Date().getTime() - startEngage;\n        }\n\n        // Update cookie with Session dwell times\n        if (!idleReport && timeEngaged > 0 && timeEngaged < 1800000)\n        {\n          if (typeof session_getCookie(cookieDwell)==='undefined')\n          {\n            session_createCookie(cookieDwell,0);\n          }\n\n          var dwell=1*session_getCookie(cookieDwell);\n          dwell=dwell+timeEngaged;\n          session_updateCookie(cookieDwell,dwell);\n\n          // Fire FB pixel with Quality Session source\n          if (dwell>=30000)\n          {\n            var sessionSource=session_getCookie(cookieSource);\n            var sessionSourcePaid=session_getCookie(cookieSourcePaid);\n\n            session_createCookie(cookieQuality,sessionSource);\n\n            // fbq('init', fb_pixel_id) // uncomment if multiple FB pixels coexist on page\n            fbq('track', fb_event_name,\n                {'content_category':sessionSource\n                 ,'content_name':sessionSourcePaid}\n               );\n          }\n        }\n        if (idle)\n        {\n          idleReport = true;\n        }\n\n        // Fix possible beforeunload duplication problem\n        if (evt && evt.type === 'beforeunload')\n        {\n          window.removeEventListener('beforeunload', report);\n        }\n        timeEngaged = 0;\n        startEngage = new Date().getTime();\n        reportTimer = window.setTimeout(report, limitReport);\n      };\n    }\n    // LOOP END\n\n    addListener('mousedown', pulse);\n    addListener('keydown', pulse);\n    addListener('scroll', pulse);\n    addListener('mousemove', pulse);\n    addListener('beforeunload', report);\n\n    idleTimer = window.setTimeout(setIdle, limitIdle);\n    reportTimer = window.setTimeout(report, limitReport);\n  })();\n\n</script>"
+                    },
+                    {
+                        "type": "BOOLEAN",
+                        "key": "supportDocumentWrite",
+                        "value": "false"
+                    }
+                ],
+                "fingerprint": "1532002518589",
+                "firingTriggerId": [
+                    "8"
+                ],
+                "tagFiringOption": "ONCE_PER_EVENT"
+            }
+        ],
+        "trigger": [
+            {
+                "accountId": "2007725075",
+                "containerId": "9371098",
+                "triggerId": "8",
+                "name": "Window Loaded",
+                "type": "WINDOW_LOADED",
+                "fingerprint": "1530539699587"
+            }
+        ],
+        "builtInVariable": [
+            {
+                "accountId": "2007725075",
+                "containerId": "9371098",
+                "type": "PAGE_URL",
+                "name": "Page URL"
+            },
+            {
+                "accountId": "2007725075",
+                "containerId": "9371098",
+                "type": "REFERRER",
+                "name": "Referrer"
+            }
+        ],
+        "fingerprint": "1532002559435",
+        "tagManagerUrl": "https://tagmanager.google.com/#/versions/accounts/2007725075/containers/9371098/versions/27?apiLink=version"
+    }
+}
