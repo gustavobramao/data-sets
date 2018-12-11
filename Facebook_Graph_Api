@@ -1,7 +1,7 @@
 #Retrive data per AdSets
 
 CURL GET 
-act_10155071198470936/insights?level=ad&day&fields=campaign_id,campaign_name,adset_id,adset_name,spend&time_range={"since":"2018-12-01","until":"2018-12-10"}
+act_10155071198470936/insights?level=ad&day&fields=campaign_id,campaign_name,adset_id,adset_name,spend&time_range={"since":"2018-12-01","until":"2018-12-10"}&time_increment=1
 
 #Set up multi_cell per campaing using CURL
 curl \
