@@ -1,0 +1,31 @@
+library(jsonlite)
+library(lubridate)
+library(dplyr)
+
+
+startDate           <- date("2018-11-04")
+endDate             <- date("2018-12-10")
+
+
+fromJSON("https://graph.facebook.com/v3.2/act_10155071198470936/insights?level=ad&day&fields=campaign_id%2Ccampaign_name%2Cadset_id%2Cadset_name%2Cspend&time_range=%7B%22since%22%3A%222018-11-04%22%2C%22until%22%3A%222018-12-10%22%7D&access_token=guss_dumy")$data
+date    <- startDate
+export  <- data.frame()
+
+while(date <= endDate)
+{
+  url <- paste("https://graph.facebook.com/v3.2/act_10155071198470936/insights?level=ad&day&fields=campaign_id%2Ccampaign_name%2Cadset_id%2Cadset_name%2Cspend&time_range=%7B%22since%22%3A%22",
+               date, 
+               "%22%2C%22until%22%3A%22",
+               date,
+               "%22%7D&access_token=EAAIZCoL2CuZBkBAEiq0bSYv3qzKJtQQNcBVXdLtlRdFheZCOd6SZCrt0GwXrV8cmZCEAaRH5KN9DxKa26QZBqenmnzFcoVHVyyabTI4Nl1LWIfsj2ivr4tale4jVVZABkEphhiyiNMzPTArjmMFZB17UYJzqtpYwFPyQRqr3ZAm5kTO59dG72eJAF11iZAjS38Q0gZD",
+               sep=""
+  )
+  
+  dataAux <- fromJSON(url)$data
+  export  <- bind_rows(export, dataAux)
+  
+  date    <- date+1
+}
+
+
+write.csv2(export, "neustar_paid.csv", row.names = FALSE)
