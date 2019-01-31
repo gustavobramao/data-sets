@@ -1,0 +1,51 @@
+SELECT
+
+  date,
+
+  trafficSource.keyword AS keywords,
+
+  trafficSource.campaign AS campaign,
+
+  SUM(totals.transactions) AS transactions,
+
+  SUM(totals.hits) AS hits,
+
+  SUM(totals.totalTransactionRevenue)/1000000 AS revenue,
+
+  AVG(totals.sessionQualityDim) AS QS,
+
+  geoNetwork.country AS GEO_IP,
+
+  trafficSource.adwordsClickInfo.gclId AS Gclid,
+
+  customDimensions.index = 59 as CD
+
+FROM (TABLE_DATE_RANGE([[bershka-negocio:147483926.ga_sessions_],
+
+      TIMESTAMP("2018-12-01"),
+
+      TIMESTAMP("2018-12-15"))),
+
+WHERE
+
+  geoNetwork.country = "Spain"
+
+  AND totals.transactions >0
+
+  AND trafficSource.medium ="cpc"
+
+ 
+
+GROUP BY
+
+  date,
+
+  GEO_IP,
+
+  keywords,
+
+  campaign,
+
+  Gclid,
+
+  CD
