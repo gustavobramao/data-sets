@@ -1,0 +1,269 @@
+#https://blog.alookanalytics.com/2017/04/26/monte-carlo-method-in-r/
+
+#μS P&L Drill down till profit.
+
+cost <- 4752000
+cpv <- 0.23
+cvr <- 0.0095
+cancel <- 0.852
+aov <- 67.8
+mc2 <- 0.237 
+trafic <- cost/cpv
+orders <- trafic * cvr
+net_orders <- orders *cancel
+net_revenue <- net_orders*aov 
+cpo <- cost / net_orders
+cir <- cost / net_revenue
+store_ctb <- net_revenue * mc2
+brand_ctb <- store_ctb - cost
+
+brand_ctb
+
+#' Monte Carlo Simulattion
+#' 
+#' Calculates stock price after n periods using standard stock price model
+#' @param mu original risk variable
+#' @param n trading days
+#' @param stock_mu expected percentual drift uplift over n periods
+#' @param stock_sigma expecter percentual stock volatility - stedv downlift
+#' @return stock price after n periods
+#' 
+
+# Modeling Risk in marketing cost
+#
+
+f_cost <- function(mu_cost, n, stock_mu_cost, stock_sigma_cost){
+  delta_t <- 1/n # one period
+  for (i in seq(n)){
+    epsilon <- runif(n=1, min=0, max=1) # random generated number
+    # calculate stock price (using quantile function of normal distribution)
+    mu_cost <- mu_cost * (1 + qnorm(epsilon, 
+                                    stock_mu_cost * delta_t, 
+                                    stock_sigma_cost* sqrt(delta_t)))
+  }
+  return(mu_cost)
+}
+
+
+# parameters
+simulations <- 10000 # number of MC simulations
+n <- 365 # trading days
+mu_cost <- cost 
+stock_mu_cost <- .15 # drift 10%
+stock_sigma_cost <- .3 # volatility 20%
+
+# Monte Carlo simulations
+set.seed(42) # for reproducibility
+mu_costs <- c()
+for (i in seq(simulations)){
+  mu_costs <- c(mu_costs,
+                f_cost(mu_cost=mu_cost, 
+                       n=n, 
+                       stock_mu_cost=stock_mu_cost, 
+                       stock_sigma_cost=stock_sigma_cost))
+}
+
+quantile(mu_costs, c(.80, .90))
+hist(mu_costs, breaks = 100, col = "green")
+
+
+
+#Modeling Risks in CPV
+
+f_cpv <- function(mu_cpv, n, stock_mu_cpv, stock_sigma_cpv){
+  delta_t <- 1/n # one period
+  for (i in seq(n)){
+    epsilon <- runif(n=1, min=0, max=1) # random generated number
+    # calculate stock price (using quantile function of normal distribution)
+    mu_cpv <- mu_cpv * (1 + qnorm(epsilon, 
+                                  stock_mu_cpv * delta_t, 
+                                  stock_sigma_cpv* sqrt(delta_t)))
+  }
+  return(mu_cpv)
+}
+
+
+# parameters
+simulations <- 10000 # number of MC simulations
+n <- 365 # trading days
+mu_cpv <- cpv 
+stock_mu_cpv <- .15 # drift 10%
+stock_sigma_cpv <- .3 # volatility 20%
+
+# Monte Carlo simulations
+set.seed(42) # for reproducibility
+mu_cpvs <- c()
+for (i in seq(simulations)){
+  mu_cpvs <- c(mu_cpvs,
+               f_cpv(mu_cpv=mu_cpv, 
+                     n=n, 
+                     stock_mu_cpv=stock_mu_cpv, 
+                     stock_sigma_cpv=stock_sigma_cpv))
+}
+
+quantile(mu_cpvs, c(.80, .90))
+hist(mu_cpvs, breaks = 100, col = "green")
+
+
+
+#Modeling risks in trafic
+
+f_trafic <- function(mu_trafic, n, stock_mu_trafic, stock_sigma_trafic){
+  delta_t <- 1/n # one period
+  for (i in seq(n)){
+    epsilon <- runif(n=1, min=0, max=1) # random generated number
+    # calculate stock price (using quantile function of normal distribution)
+    mu_trafic <- mu_trafic * (1 + qnorm(epsilon, 
+                                        stock_mu_trafic * delta_t, 
+                                        stock_sigma_trafic* sqrt(delta_t)))
+  }
+  return(mu_trafic)
+}
+
+
+# parameters
+simulations <- 10000 # number of MC simulations
+n <- 365 # trading days
+mu_trafic <- trafic 
+stock_mu_trafic <- .15 # drift 10%
+stock_sigma_trafic <- .3 # volatility 20%
+
+# Monte Carlo simulations
+set.seed(42) # for reproducibility
+mu_trafics <- c()
+for (i in seq(simulations)){
+  mu_trafics <- c(mu_trafics,
+                  f_trafic(mu_trafic=mu_trafic, 
+                           n=n, 
+                           stock_mu_trafic=stock_mu_trafic, 
+                           stock_sigma_trafic=stock_sigma_trafic))
+}
+
+quantile(mu_trafics, c(.80, .90))
+hist(mu_trafics, breaks = 100, col = "green")
+
+
+# Modeling AOV Risk
+
+
+
+f_aov <- function(mu_aov, n, stock_mu_aov, stock_sigma_aov){
+  delta_t <- 1/n # one period
+  for (i in seq(n)){
+    epsilon <- runif(n=1, min=0, max=1) # random generated number
+    # calculate stock price (using quantile function of normal distribution)
+    mu_aov <- mu_aov * (1 + qnorm(epsilon, 
+                                  stock_mu_aov * delta_t, 
+                                  stock_sigma_aov* sqrt(delta_t)))
+  }
+  return(mu_aov)
+}
+
+
+# parameters
+simulations <- 10000 # number of MC simulations
+n <- 365 # trading days
+mu_aov <- aov 
+stock_mu_aov <- .15 # drift 10%
+stock_sigma_aov <- .3 # volatility 20%
+
+# Monte Carlo simulations
+set.seed(42) # for reproducibility
+mu_aovs <- c()
+for (i in seq(simulations)){
+  mu_aovs <- c(mu_aovs,
+               f_aov(mu_aov=mu_aov, 
+                     n=n, 
+                     stock_mu_aov=stock_mu_aov, 
+                     stock_sigma_aov=stock_sigma_aov))
+}
+
+quantile(mu_aovs, c(.80, .90))
+hist(mu_aovs, breaks = 100, col = "green")
+
+
+#Modeling risks in cvr
+
+f_cvr <- function(mu_cvr, n, stock_mu_cvr, stock_sigma_cvr){
+  delta_t <- 1/n # one period
+  for (i in seq(n)){
+    epsilon <- runif(n=1, min=0, max=1) # random generated number
+    # calculate stock price (using quantile function of normal distribution)
+    mu_cvr <- mu_cvr * (1 + qnorm(epsilon, 
+                                  stock_mu_cvr * delta_t, 
+                                  stock_sigma_cvr* sqrt(delta_t)))
+  }
+  return(mu_cvr)
+}
+
+
+# parameters
+simulations <- 10000 # number of MC simulations
+n <- 365 # trading days
+mu_cvr <- cvr 
+stock_mu_cvr <- .15 # drift 10%
+stock_sigma_cvr <- .3 # volatility 20%
+
+# Monte Carlo simulations
+set.seed(42) # for reproducibility
+mu_cvrs <- c()
+for (i in seq(simulations)){
+  mu_cvrs <- c(mu_cvrs,
+               f_cvr(mu_cvr=mu_cvr, 
+                     n=n, 
+                     stock_mu_cvr=stock_mu_cvr, 
+                     stock_sigma_cvr=stock_sigma_cvr))
+}
+
+quantile(mu_cvrs, c(.80, .90))
+hist(mu_cvrs, breaks = 100, col = "green")
+
+
+# Simulated 1000 risk.
+
+e_trafic <- mean(mu_costs) / mean(mu_cpvs)
+e_orders <- e_trafic * mean(mu_cvr)
+e_net_orders <- e_orders * cancel
+e_net_revenue <- e_net_orders * mean(mu_aovs)
+e_cpo <- mean(mu_costs) / e_net_orders
+e_cir <- mean(mu_costs) / e_net_revenue
+e_store_ctb <- e_net_revenue * mc2
+e_brand_ctb <- e_store_ctb - mean(mu_costs)
+
+
+
+#Modeling Brand Contribution
+
+f_profit <- function(mu_profit, n, stock_mu_profit, stock_sigma_profit){
+  delta_t <- 1/n # one period
+  for (i in seq(n)){
+    epsilon <- runif(n=1, min=0, max=1) # random generated number
+    # calculate stock price (using quantile function of normal distribution)
+    mu_profit <- mu_profit * (1 + qnorm(epsilon, 
+                                        stock_mu_profit * delta_t, 
+                                        stock_sigma_profit* sqrt(delta_t)))
+  }
+  return(mu_profit)
+}
+
+
+# parameters
+simulations <- 10000 # number of MC simulations
+n <- 365 # trading days
+mu_profit <- e_brand_ctb 
+stock_mu_profit <- .15 # drift 10%
+stock_sigma_profit <- .3 # volatility 20%
+
+# Monte Carlo simulations
+set.seed(42) # for reproducibility
+mu_profits <- c()
+for (i in seq(simulations)){
+  mu_profits <- c(mu_profits,
+                  f_profit(mu_profit=mu_profit, 
+                           n=n, 
+                           stock_mu_profit=stock_mu_profit, 
+                           stock_sigma_profit=stock_sigma_profit))
+}
+
+quantile(mu_profits, c(.80, .90))
+hist(mu_profits, breaks = 100, col = "green")
