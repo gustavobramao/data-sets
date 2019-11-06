@@ -49,8 +49,8 @@ f_cost <- function(mu_cost, n, stock_mu_cost, stock_sigma_cost){
 simulations <- 10000 # number of MC simulations
 n <- 365 # trading days
 mu_cost <- cost 
-stock_mu_cost <- .15 # drift 10%
-stock_sigma_cost <- .3 # volatility 20%
+stock_mu_cost <- .05 # drift 10%
+stock_sigma_cost <- .1 # volatility 20%
 
 # Monte Carlo simulations
 set.seed(42) # for reproducibility
@@ -63,7 +63,7 @@ for (i in seq(simulations)){
                        stock_sigma_cost=stock_sigma_cost))
 }
 
-quantile(mu_costs, c(.80, .90))
+quantile(mu_costs, c(.30, .70))
 hist(mu_costs, breaks = 100, col = "green")
 
 
@@ -87,7 +87,7 @@ f_cpv <- function(mu_cpv, n, stock_mu_cpv, stock_sigma_cpv){
 simulations <- 10000 # number of MC simulations
 n <- 365 # trading days
 mu_cpv <- cpv 
-stock_mu_cpv <- .15 # drift 10%
+stock_mu_cpv <- .10 # drift 10%
 stock_sigma_cpv <- .3 # volatility 20%
 
 # Monte Carlo simulations
@@ -125,8 +125,8 @@ f_trafic <- function(mu_trafic, n, stock_mu_trafic, stock_sigma_trafic){
 simulations <- 10000 # number of MC simulations
 n <- 365 # trading days
 mu_trafic <- trafic 
-stock_mu_trafic <- .15 # drift 10%
-stock_sigma_trafic <- .3 # volatility 20%
+stock_mu_trafic <- .1 # drift 10%
+stock_sigma_trafic <- .1 # volatility 20%
 
 # Monte Carlo simulations
 set.seed(42) # for reproducibility
@@ -164,8 +164,8 @@ f_aov <- function(mu_aov, n, stock_mu_aov, stock_sigma_aov){
 simulations <- 10000 # number of MC simulations
 n <- 365 # trading days
 mu_aov <- aov 
-stock_mu_aov <- .15 # drift 10%
-stock_sigma_aov <- .3 # volatility 20%
+stock_mu_aov <- .5 # drift 10%
+stock_sigma_aov <- .5 # volatility 20%
 
 # Monte Carlo simulations
 set.seed(42) # for reproducibility
@@ -201,8 +201,8 @@ f_cvr <- function(mu_cvr, n, stock_mu_cvr, stock_sigma_cvr){
 simulations <- 10000 # number of MC simulations
 n <- 365 # trading days
 mu_cvr <- cvr 
-stock_mu_cvr <- .15 # drift 10%
-stock_sigma_cvr <- .3 # volatility 20%
+stock_mu_cvr <- .20 # drift 10%
+stock_sigma_cvr <- .40 # volatility 20%
 
 # Monte Carlo simulations
 set.seed(42) # for reproducibility
@@ -267,3 +267,5 @@ for (i in seq(simulations)){
 
 quantile(mu_profits, c(.80, .90))
 hist(mu_profits, breaks = 100, col = "green")
+
+mean(mu_profits)
