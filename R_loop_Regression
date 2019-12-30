@@ -1,0 +1,1064 @@
+---
+  title: "Modeling Mutant GUI"
+output:
+  html_document:
+  toc: true
+theme: united
+toc_float: true
+css: custom.css
+chart.styledMode: TRUE
+---
+  
+  ```{r setup, include=FALSE, echo=FALSE,warning=FALSE,message=FALSE,error=FALSE}
+
+library(highcharter)
+library(dplyr)
+library(viridisLite)
+library(forecast)
+library(treemap)
+library(flexdashboard)
+library(arules)
+
+library(highcharter)
+library(forecast)
+library(highcharter)
+library(ggplot2)
+library(ggfortify)
+library(prophet)
+library(corrplot)
+library(knitr)
+
+library(bigrquery) 
+library(dplyr) 
+library(DBI)
+library(ggplot2)
+library(bigQueryR)
+
+library(corrplot)
+library(drc)
+library(sandwich)
+library(lmtest)
+
+## BiGQuery Setup
+library(googleAuthR)
+library(searchConsoleR)
+
+options(googleAuthR.scopes.selected = c("https://www.googleapis.com/auth/bigquery",
+                                        "https://www.googleapis.com/auth/analytics"))
+
+library(igraph)
+library(RGoogleAnalytics)
+library(scales)
+library(googleAnalyticsR)
+library(ChannelAttribution)
+library(highcharter)
+library(viridisLite)
+library(forecast)
+library(treemap)
+library(rlang)
+library(shiny)
+
+library(knitr)
+library(kableExtra)
+library(plotly)
+
+library(doParallel)
+library(bsts)
+library(rstan)
+library(broom)
+library(rlang)
+library(DT)
+library(tidyverse)
+
+
+gar_auth_service("conn.json")
+knitr::opts_chunk$set(echo = TRUE)
+
+
+```
+
+```{r Start_date, include=FALSE, echo=FALSE,warning=FALSE,message=FALSE,error=FALSE}
+
+start_date <- "2019-01-01"
+end_date <- Sys.Date()
+
+```
+
+
+Forecast Prophet BBW UAE {.tabset data-width=400}
+-----------------------------------------------------------------------
+  
+  
+  ```{r Forecast BBW UAE, include=FALSE, echo=FALSE,warning=FALSE,message=FALSE,error=FALSE}
+
+
+# BigQuery Auth
+bq_auth(path = "conn.json")
+projectid<-'uts-mdsi'
+datasetid<-'stds_assignment'
+bq_conn <-  dbConnect(bigquery(), 
+                      project = "authentic-codex-225113",
+                      dataset = "monaliza_bi", 
+                      use_legacy_sql = FALSE
+)
+
+bigrquery::dbListTables(bq_conn)
+
+sql_query = sprintf("
+SELECT
+date,
+SUM(orders) as orders,
+SUM(new_customers) as new_cst,
+(SUM(affiliate_cost) + SUM(cost)) as total_cost,
+SUM(gross_revenue) / SUM(orders) as AOV
+ 
+FROM `authentic-codex-225113.monaliza_bi.daily_cost_session_orders`
+where brand_country = 'BB_UAE'and date between '%s' and '%s'
+
+group by
+1
+
+order by 1 asc", start_date, end_date)
+
+
+offence_qtr <- bq_project_query('authentic-codex-225113', sql_query)
+df_bbw_new = bq_table_download(offence_qtr)
+
+
+#extract promotion calendar.
+
+
+sql_query = sprintf("SELECT * FROM `authentic-codex-225113.monaliza_bi.promotions_calendar_bbw`
+                    where brand = 'BB_UAE' and date between '2019-01-01' and '2020-12-31'
+                    order by 1 desc")
+
+offence_qtr <- bq_project_query('authentic-codex-225113', sql_query)
+df_bbw_promo = bq_table_download(offence_qtr)
+
+#Caluclate difference between dates function dynamic period date for prophet
+
+f_prophet_days <- as.Date(as.character('2020-12-31'), format="%Y-%m-%d")-as.Date(as.character(end_date), format="%Y-%m-%d")
+f_prophet_days <- f_prophet_days+1
+
+#build prophet model
+
+#Call function with prohet to fit the model based on the historical data, modified changepoint.prior scale reduce mape
+colnames(df_bbw_new) <- c("ds", "orders" , "y" , "total_cost", "aov")
+
+m_bbw_c <- prophet(df_bbw_new, growth = "linear", changepoints = NULL,
+                   n.changepoints = 100, changepoint.range = 0.9,
+                   yearly.seasonality = "TRUE", weekly.seasonality = "TRUE",
+                   daily.seasonality = "TRUE", holidays = NULL,
+                   seasonality.mode = "additive", seasonality.prior.scale = 50,
+                   holidays.prior.scale = 10, changepoint.prior.scale = 0.2,
+                   mcmc.samples = 0, interval.width = 0.8, uncertainty.samples = 1000,
+                   fit = TRUE)
+
+#Forecast future by default the model will also include historical dates
+future <- make_future_dataframe(m_bbw_c , periods = f_prophet_days)
+tail(future)
+
+#Predict the future outcome into a new data frame
+forecast_c_bb <- predict(m_bbw_c, future)
+tail(forecast_c_bb[c('ds', 'yhat', 'yhat_lower', 'yhat_upper')])
+
+
+plot(m_bbw_c, forecast_c_bb) + add_changepoints_to_plot(m_bbw_c)
+prophet_plot_components(m_bbw_c, forecast_c_bb)
+
+# Preparing data to Add Regressors to prophet
+
+forecast_c_bb$seasonal  <- df_bbw_promo$seasonal
+filter_bbw <- subset(df_bbw_promo, date < end_date)
+df_bbw_new$seasonal <- filter_bbw$seasonal
+
+# Adding Regressors to prophet SET fit to false.
+
+m_bbw_c <- prophet(df_bbw_new, growth = "linear", changepoints = NULL,
+                   n.changepoints = 100, changepoint.range = 0.9,
+                   yearly.seasonality = "TRUE", weekly.seasonality = "TRUE",
+                   daily.seasonality = "TRUE", holidays = NULL,
+                   seasonality.mode = "additive", seasonality.prior.scale = 50,
+                   holidays.prior.scale = 10, changepoint.prior.scale = 0.2,
+                   mcmc.samples = 0, interval.width = 0.8, uncertainty.samples = 1000,
+                   fit = FALSE)
+
+m_bbw_c <- add_regressor(m_bbw_c, 'seasonal')
+m_bbw_c <- fit.prophet(m_bbw_c, df_bbw_new)
+
+future$seasonal <- df_bbw_promo$seasonal
+
+forecast <- predict(m_bbw_c, future)
+plot(m_bbw_c, forecast) + add_changepoints_to_plot(m_bbw_c)
+
+
+#start cross the data for cross validation
+
+df.cv <- cross_validation(m_bbw_c, initial = 264, period = 10, horizon = 80, units = 'days')
+df.p <- performance_metrics(df.cv)
+head(df.p)
+
+plot_cross_validation_metric(df.cv, metric = 'mape')
+
+#y(t) = g(t) + s(t) + h(t) + b(x) + ϵₜ
+#g(t) models trend, which describes long-term increase or decrease in the data. Prophet incorporates two trend models, a saturating growth model and a piecewise linear model, depending on the type of forecasting problem.
+#s(t) models seasonality with Fourier series, which describes how data is affected by seasonal factors such as the time of the year
+#h(t) models the effects of holidays or large events that impact business time series (e.g. new product launch, Black Friday, Superbowl, etc.)
+#ϵₜ represents an irreducible error term
+#b(x) add promotions regressor
+
+#generating phasing from trend + yhat.
+
+
+
+marketing_inv <- 2000000
+phasing_per_cent <- (forecast$trend+forecast$yhat)/sum(forecast$trend+forecast$yhat)
+forecast$pred_budget <- marketing_inv*phasing_per_cent
+forecast$total_orders <- (forecast$trend+forecast$yhat)
+
+attach(forecast)
+
+plot(ds, total_orders)
+
+```
+
+
+```{r Hill Calculation BBW UAE, include=FALSE, echo=FALSE,warning=FALSE,message=FALSE,error=FALSE}
+
+#calculate hill
+
+attach(df_bbw_new)
+
+m.hill_b <- drm(orders ~ total_cost, fct = LL.5())
+summary(m.hill_b)
+
+hill_b <- plot(m.hill_b, broken = TRUE, type = "all",
+               xlab = "Media Spend", xlim = c(100, 10000),
+               ylab = "Orders", col="blue")
+
+
+colnames(hill_b) <- c("total_cost", "orders")
+
+```
+
+
+```{r Hill max value BBW UAE, include=FALSE, echo=FALSE,warning=FALSE,message=FALSE,error=FALSE}
+
+#rate of change, loop tocaluclate difference between rows.
+
+#PL numbers to caluclate max profit or max marketshre
+aov_bbw <- mean(df_bbw_new$aov)
+hill_b$gross_rev <- hill_b$orders*aov_bbw
+hill_b$store_ctb <-  hill_b$gross_rev*0.44
+hill_b$brand_ctb <- hill_b$store_ctb-hill_b$total_cost 
+hill_b$cpo <- hill_b$total_cost/hill_b$orders
+
+
+attach(hill_b)
+
+diff <- hill_b %>%
+  mutate(diff = orders - lag(orders, default = first(orders)))
+hill_b$diff <- diff$diff
+
+#Find Max value hill b max rate of change slope
+
+tipping_point_bbw <- hill_b %>% 
+  filter(diff == max(diff))
+
+max_brand_ctb_bbw <- hill_b %>% 
+  filter(brand_ctb == max(brand_ctb))
+
+
+max_spend <- hill_b %>% 
+  filter(diff < 2 & total_cost > mean(total_cost))
+
+saturation <- max_spend  %>% 
+  filter(total_cost == min(total_cost))
+
+forecast$saturation <- saturation$total_cost
+
+```
+
+
+```{r forecast prophet BBW UAE, include=FALSE, echo=FALSE,warning=FALSE,message=FALSE,error=FALSE}
+#forecast prophet
+forecast$date <- as.Date.character(forecast$ds)
+df_bbw_new$date <- as.Date.character(df_bbw_new$ds)
+
+
+#generating phasing from trend + yhat.
+
+#subset forecast dates
+df_bbw_plot_e <- subset(forecast, date > end_date)
+days_bbw <- as.integer(f_prophet_days)
+
+#fiding tipping point
+
+marketing_inv <- days_bbw*max_brand_ctb_bbw$total_cost
+brand_ctb_tipping <- max_brand_ctb_bbw$total_cost
+forecast$optimal_pace <-brand_ctb_tipping
+forecast$tipping_order <- tipping_point_bbw$total_cost
+
+phasing_per_cent <- (df_bbw_plot_e$trend+df_bbw_plot_e$yhat)/sum(df_bbw_plot_e$trend+df_bbw_plot_e$yhat)
+df_bbw_plot_e$marketing_inv <- marketing_inv*phasing_per_cent
+df_bbw_plot_e$total_orders <- (df_bbw_plot_e$trend+df_bbw_plot_e$yhat)
+
+```
+
+
+```{r BBW hill science BBW UAE, echo=TRUE}
+# MLE Hill Saturation -  Log(y/bx) = Ky. [1-Y/L] 
+```
+
+### Modeling Optimal Media Spend
+
+```{r series BBW UAE, echo=FALSE,warning=FALSE,message=FALSE,error=FALSE}
+
+highchart(type = "stock") %>% 
+  hc_yAxis_multiples(
+    list(lineWidth = 3),
+    list(showLastLabel = TRUE, opposite = TRUE))%>%
+  
+  hc_add_series(df_bbw_new, "area", hcaes(date, total_cost), name = "Real Investment", yAxis = 1) %>% 
+  hc_add_series(df_bbw_new, "area", hcaes(date, y), name = "Real Orders")%>% 
+  hc_add_series(df_bbw_plot_e, "area", chart.styledMode =TRUE, hcaes(date, total_orders), name = "Modeled Orders", color = "#212F3C")%>% 
+  hc_add_series(df_bbw_plot_e, "area", hcaes(date, marketing_inv), name = "Modeled Investment", color = "#241274", 
+                yAxis = 1) %>% 
+  
+  hc_add_series(forecast, "line", dashStyle = 'dot', hcaes(date, optimal_pace), 
+                name = "Optimal Investment Pace", yAxis = 1) %>% 
+  
+  hc_add_series(forecast, "line", dashStyle = 'dot', hcaes(date, tipping_order), 
+                name = "Max Rate of Change", yAxis = 1) %>% 
+  
+  hc_add_series(forecast, "line", dashStyle = 'dot', hcaes(date, saturation), 
+                name = "Saturation Investment", yAxis = 1) %>% 
+  
+  hc_title(text = "Modeling Media Orders and Seasonality BBW UAE",
+           margin = 20, align = "center",
+           style = list(color = "#000000", useHTML = TRUE))%>% 
+  
+  hc_subtitle(text = paste("Media Investment Left $", round(marketing_inv, digits =0)),
+              align = "center", style = list(color = "#1D1F3C", fontWeight = "bold"))
+
+```
+
+
+### Scatter Spend and Orders  
+
+```{r pressure BBW UAE, echo=FALSE,warning=FALSE,message=FALSE,error=FALSE}
+
+attach(df_bbw_new)
+
+colors <- c("#FB1108","#FD150B","#FA7806","#FBE426","#FCFB8F",
+            "#F3F5E7", "#C7E4EA","#ABD6E6","#9AD2E1")
+
+df_bbw_new$color <- colorize(df_bbw_new$orders, colors)
+
+x <- c("total_cost", "orders")
+y <- sprintf("{point.%s:.2f}", c("total_cost", "orders"))
+tltip <- tooltip_table(x, y)
+
+
+hchart(df_bbw_new, "scatter", hcaes(total_cost, orders, color = color)) %>% 
+  hc_chart(backgroundColor = "white") %>% 
+  hc_xAxis(type = "logarithmic", reversed = FALSE) %>% 
+  hc_yAxis(type = "logarithmic", gridLineWidth = 0) %>% 
+  hc_title(text = "Media Investment vs Orders") %>% 
+  hc_subtitle(text = "Moving towards tipping point") %>% 
+  hc_tooltip(useHTML = TRUE, headerFormat = "", pointFormat = tltip) %>% 
+  hc_size(height = 600)
+
+
+```
+
+### Hill Function  
+
+```{r Plot Hill BBW UAE, echo=TRUE}
+
+#Y <- K/(1+exp(-(α+β*x)))
+hchart(hill_b, "line", hcaes(x = total_cost, y = orders))
+
+```
+
+
+```{r new dataframe recap BBW UAE, include=FALSE, echo=FALSE,warning=FALSE,message=FALSE,error=FALSE}
+
+df_bbw_recap <- subset(forecast, date > "2020-01-01")
+
+df_bbw_recap_month <- df_bbw_recap%>%
+  dplyr::mutate(month = lubridate::month(date))
+
+df_bbw_pred_budget <- df_bbw_recap_month %>%
+  group_by(month) %>%
+  summarize(sum(pred_budget))
+
+df_bbw_pred_orders <- df_bbw_recap_month %>%
+  group_by(month) %>%
+  summarize(sum(total_orders))
+
+df_bbw_pred_budget$orders <- df_bbw_pred_orders$`sum(total_orders)`
+
+colnames(df_bbw_pred_budget) <- c("month", "pred_budget" , "orders")
+
+
+aov_bbw <- mean(df_bbw_new$aov)
+df_bbw_pred_budget$gross_rev <- df_bbw_pred_budget$orders*aov_bbw
+df_bbw_pred_budget$store_ctb <-  df_bbw_pred_budget$gross_rev*0.44
+df_bbw_pred_budget$brand_ctb <- df_bbw_pred_budget$store_ctb-df_bbw_pred_budget$pred_budget 
+
+
+```
+
+
+### Predicted numbers
+
+```{r bbw UAE all, echo=FALSE, warning=FALSE,message=FALSE,error=FALSE}
+highchart() %>% 
+  hc_chart(type = "column") %>%
+  hc_xAxis(categories = df_bbw_recap_month$month) %>%
+  hc_add_series(name="Predicted_Investment",data = df_bbw_pred_budget$pred_budget) %>%
+  hc_add_series(name="Predicted_Brand_ctb",data = df_bbw_pred_budget$brand_ctb)%>%
+  hc_add_series(name="Predicted_orders",data = df_bbw_pred_budget$orders)
+
+```
+
+
+### Total 2020
+
+```{r bbw UAE 2020, echo=FALSE, warning=FALSE,message=FALSE,error=FALSE}
+
+
+
+highchart() %>% 
+  hc_chart(type = "column") %>%
+  hc_add_series(name="Predicted_Revenue",data = sum(df_bbw_pred_budget$gross_rev)) %>%
+  hc_add_series(name="Predicted_Investment",data = sum(df_bbw_pred_budget$pred_budget)) %>%
+  hc_add_series(name="Predicted_Brand_ctb",data = sum(df_bbw_pred_budget$brand_ctb))%>%
+  hc_add_series(name="Predicted_orders",data = sum(df_bbw_pred_budget$orders))
+
+```
+
+Marketing Mix Modeling - BBW UAE {.tabset data-width=400}
+-----------------------------------------------------------------------
+  
+  ```{r BBW mmm function BBW UAE, echo=TRUE}
+# Modeling drivers | y = α + β(x) + ϵ 
+```
+
+
+```{r MMM BBW UAE, include=FALSE, echo=FALSE,warning=FALSE,message=FALSE,error=FALSE}
+
+#query media and price data
+
+start_date <- "2019-01-01"
+end_date <- Sys.Date()
+
+
+# BigQuery Auth
+bq_auth(path = "conn.json")
+projectid<-'uts-mdsi'
+datasetid<-'stds_assignment'
+bq_conn <-  dbConnect(bigquery(), 
+                      project = "authentic-codex-225113",
+                      dataset = "monaliza_bi", 
+                      use_legacy_sql = FALSE
+)
+
+bigrquery::dbListTables(bq_conn)
+
+sql_query = sprintf("SELECT 
+date,
+brand_country,
+SUM(facebook_costs) as facebook,
+SUM(adwords_costs) as google,
+SUM(criteo_costs) as criteo,
+SUM(affiliate_cost) as affiliates,
+SUM(orders) as orders,
+SUM(gross_revenue) / SUM(orders) as  price
+
+FROM `authentic-codex-225113.monaliza_bi.daily_cost_session_orders` where brand_country = 'BB_UAE' 
+and date between '%s' and '%s'
+
+group by 
+1,
+2
+
+order by date asc", start_date, end_date)
+
+
+offence_qtr <- bq_project_query('authentic-codex-225113', sql_query)
+df_bbw_mmm = bq_table_download(offence_qtr)
+
+
+
+#extract promo calendar
+
+bq_auth(path = "conn.json")
+projectid<-'uts-mdsi'
+datasetid<-'stds_assignment'
+bq_conn <-  dbConnect(bigquery(), 
+                      project = "authentic-codex-225113",
+                      dataset = "monaliza_bi", 
+                      use_legacy_sql = FALSE
+)
+
+bigrquery::dbListTables(bq_conn)
+
+sql_query = sprintf("SELECT * FROM `authentic-codex-225113.monaliza_bi.promotions_calendar_bbw`
+                    where brand = 'BB_UAE' and date between '%s' and '%s'
+                    order by 1 desc", start_date, end_date)
+
+offence_qtr <- bq_project_query('authentic-codex-225113', sql_query)
+m_bbw_promo = bq_table_download(offence_qtr)
+
+#merge promo calendar into df 
+
+m_bbw_promo <- subset(m_bbw_promo, date < end_date)
+df_bbw_mmm$seasonal <- m_bbw_promo$seasonal
+
+
+
+#start the lineal model
+source("conento_funs.R")
+
+vars_model <- c("facebook",
+                "google",
+                "affiliates",
+                "seasonal")
+
+var_tgt <- "orders"
+
+
+# 1 - MODELO LINEAL -------------------------------------------------------
+f <- paste(vars_model, collapse = "+")
+f <- paste(f, "-1")
+f <- paste(var_tgt, f, sep = "~")
+f <- as.formula(f)
+
+lm_fit <- lm(f, data = df_bbw_mmm)
+summary(lm_fit)
+
+#plot
+
+
+coeffs <- coefficients(lm_fit)
+coeffs
+
+df_bbw_mmm$modeled_orders <- df_bbw_mmm$facebook *coeffs[1] + df_bbw_mmm$google *coeffs[2] + df_bbw_mmm$affiliates*coeffs[3]  + df_bbw_mmm$seasonal[4]
+
+
+df_bbw_mmm$m_facebook <- df_bbw_mmm$facebook *coeffs[1]
+df_bbw_mmm$m_google <- df_bbw_mmm$google *coeffs[2]
+df_bbw_mmm$m_affiliates <- df_bbw_mmm$affiliates*coeffs[3]
+df_bbw_mmm$m_seasonal <- df_bbw_mmm$seasonal[4]
+
+as.Date.character(df_bbw_mmm$date)
+
+```
+
+### Media contribution
+
+```{r MMM BBW UAE Chart, echo=FALSE, warning=FALSE,message=FALSE,error=FALSE}
+
+highchart(type = "chart") %>% 
+  hc_yAxis(title = list(text = "Orders"))%>%
+  hc_add_series(df_bbw_mmm, "area", hcaes(date, orders), name = "Real_orders") %>% 
+  hc_add_series(df_bbw_mmm, "area", hcaes(date, modeled_orders), name = "modeled_orders") %>% 
+  hc_add_series(df_bbw_mmm, "area", hcaes(date, m_facebook), name = "modeled_facebook") %>% 
+  hc_add_series(df_bbw_mmm, "area", hcaes(date, m_google), name = "modeled_google") %>% 
+  hc_add_series(df_bbw_mmm, "area", hcaes(date, m_affiliates), name = "modeled_affiliates") %>% 
+  hc_title(text = "Drivers BBW UAE",
+           margin = 20, align = "center",
+           style = list(color = "#000000", useHTML = TRUE))
+
+
+```
+
+### Coefficients
+
+```{r MMM BBW coefs UAE, echo=FALSE, warning=FALSE,message=FALSE,error=FALSE}
+
+df_bbw_mmm %>%
+  tabla_coeficientes(model = lm_fit, confidence = .95) %>%
+  datatable_coeficientes()
+
+```
+
+Facebook Modeling - BBW UAE {.tabset data-width=400}
+-----------------------------------------------------------------------
+  
+  
+  ``````{r MMM BBW GRPS FB, include=FALSE, echo=FALSE,warning=FALSE,message=FALSE,error=FALSE}
+
+df_bbw_mmm$iCPO_fb <- df_bbw_mmm$facebook/df_bbw_mmm$m_facebook
+df_bbw_mmm$iCPO_google <- df_bbw_mmm$google/df_bbw_mmm$m_google
+df_bbw_mmm$iCPO_affiliates <- df_bbw_mmm$affiliates/df_bbw_mmm$m_affiliates
+
+
+iCPO_fb <- df_bbw_mmm$iCPO_fb[245]
+iCPO_google <- df_bbw_mmm$iCPO_google[245]
+iCPO_affiliates <- df_bbw_mmm$iCPO_affiliates[245]
+
+
+df_bbw_mmm$grp1 <- df_bbw_mmm$facebook < 1000
+df_bbw_mmm$grp2 <- df_bbw_mmm$facebook >= 1000 & df_bbw_mmm$facebook < 2000
+df_bbw_mmm$grp3 <- df_bbw_mmm$facebook >= 2000 & df_bbw_mmm$facebook < 5000
+df_bbw_mmm$grp4 <- df_bbw_mmm$facebook >= 5000 & df_bbw_mmm$facebook < 10000
+
+df_bbw_mmm$grp1 <- as.integer(as.logical(df_bbw_mmm$grp1))
+df_bbw_mmm$grp2 <- as.integer(as.logical(df_bbw_mmm$grp2))
+df_bbw_mmm$grp3 <- as.integer(as.logical(df_bbw_mmm$grp3))
+df_bbw_mmm$grp4 <- as.integer(as.logical(df_bbw_mmm$grp4))
+
+
+vars_model_fb <- c("grp1",
+                   "grp2",
+                   "grp3",
+                   "grp4",
+                   "google",
+                   "affiliates",
+                   "price",
+                   "seasonal")
+
+var_tgt_fb <- "orders"
+
+
+
+fb <- paste(vars_model_fb, collapse = "+")
+fb <- paste(fb, "-1")
+fb <- paste(var_tgt_fb, fb, sep = "~")
+fb <- as.formula(fb)
+
+lm_fit_fb <- lm(fb, data = df_bbw_mmm)
+summary(lm_fit_fb)
+
+```
+
+### Modeling Facebook
+
+```{r MMM BBW FB UAE Chart, echo=FALSE, warning=FALSE,message=FALSE,error=FALSE}
+
+highchart(type = "chart") %>% 
+  hc_yAxis(title = list(text = "Orders"))%>%
+  hc_add_series(df_bbw_mmm, "area", hcaes(date, orders), name = "Real_orders") %>% 
+  hc_add_series(df_bbw_mmm, "area", hcaes(date, modeled_orders), name = "modeled_orders") %>% 
+  hc_add_series(df_bbw_mmm, "area", hcaes(date, m_facebook), name = "modeled_facebook")%>%
+  hc_title(text = "Facebook fitting BBW UAE",
+           margin = 20, align = "center",
+           style = list(color = "#000000", useHTML = TRUE))
+
+
+```
+
+
+### Coefficients Facebook
+
+```{r MMM FB coefs Facebook, echo=FALSE, warning=FALSE,message=FALSE,error=FALSE}
+
+df_bbw_mmm %>%
+  tabla_coeficientes(model = lm_fit_fb, confidence = .95) %>%
+  datatable_coeficientes()
+
+```
+
+
+```{r MMM BBW Saturation FB, include=FALSE, echo=FALSE,warning=FALSE,message=FALSE,error=FALSE}
+
+
+fb_grp1_cost <- 1000
+fb_grp2_cost <- 2000
+fb_grp3_cost <- 5000
+fb_grp4_cost <- 9547
+
+
+e_grp1 <- lm_fit_fb$coefficients[1]
+e_grp2 <- lm_fit_fb$coefficients[2]
+e_grp3 <- lm_fit_fb$coefficients[3]
+e_grp4 <-lm_fit_fb$coefficients[4]
+
+
+# effect and cost
+effect <- c(e_grp1,e_grp2,e_grp3,e_grp4)
+fb_cost <- c(fb_grp1_cost, fb_grp2_cost, fb_grp3_cost, fb_grp4_cost)
+
+# Join the variables to create a data frame
+s_fb <- data.frame(effect,fb_cost)
+
+```
+
+### Saturation Facebook
+
+```{r plot scatter Facebook, echo=FALSE, warning=FALSE,message=FALSE,error=FALSE}
+hchart(s_fb, "scatter", hcaes(x = fb_cost, y = effect))
+```
+
+```{r MMM BBW Stop, include=FALSE, echo=FALSE,warning=FALSE,message=FALSE,error=FALSE}
+
+#stop the saturation menu
+
+```
+
+```{r MMM FB hill Facebook, echo=FALSE, include=FALSE, warning=FALSE,message=FALSE,error=FALSE}
+
+attach(s_fb)
+
+m.hill_b_fb <- drm(effect ~ fb_cost, fct = LL.5())
+summary(m.hill_b_fb)
+
+hill_fb <- plot(m.hill_b_fb, broken = TRUE, type = "all",
+                xlab = "Facebook Media Spend", xlim = c(100, 10000),
+                ylab = "Orders", col="blue")
+
+
+colnames(hill_fb) <- c("total_cost", "orders")
+
+```
+
+
+### Hill function
+
+```{r plot hill f Facebook, echo=TRUE, warning=FALSE,message=FALSE,error=FALSE}
+#Y <- K/(1+exp(-(α+β*x)))
+hchart(hill_fb, "line", hcaes(x = total_cost, y = orders))
+
+```
+
+### Predicted FB Investment
+
+```{r MMM BBW calculus, include=FALSE, echo=FALSE,warning=FALSE,message=FALSE,error=FALSE}
+#Define modeling forecast for facebook
+#rate of change, loop tocaluclate difference between rows.
+
+#PL numbers to caluclate max profit or max marketshre
+aov_bbw <- mean(df_bbw_new$aov)
+hill_fb$gross_rev <- hill_fb$orders*aov_bbw
+hill_fb$store_ctb <-  hill_fb$gross_rev*0.44
+hill_fb$brand_ctb <- hill_fb$store_ctb-hill_b$total_cost 
+hill_fb$cpo <- hill_fb$total_cost/hill_b$orders
+
+
+attach(hill_fb)
+
+diff <- hill_fb %>%
+  mutate(diff = orders - lag(orders, default = first(orders)))
+hill_fb$diff <- diff$diff
+
+#Find Max value hill b max rate of change slope
+
+tipping_point_fb <- hill_fb %>% 
+  filter(diff == max(diff))
+
+max_brand_ctb_bbw_fb <- hill_fb %>% 
+  filter(brand_ctb == max(brand_ctb))
+
+
+max_spend_fb <- hill_fb %>% 
+  filter(diff < 2 & total_cost > mean(total_cost))
+
+saturation_fb <- max_spend_fb  %>% 
+  filter(total_cost == min(total_cost))
+
+forecast$saturation_fb <- saturation_fb$total_cost
+
+
+#forecast prophet facebook
+forecast$date <- as.Date.character(forecast$ds)
+df_bbw_new$date <- as.Date.character(df_bbw_new$ds)
+
+
+#generating phasing from trend + yhat.
+
+#subset forecast dates
+df_bbw_plot_fb <- subset(forecast, date > end_date)
+days_bbw <- as.integer(f_prophet_days)
+
+#fiding tipping point
+
+marketing_inv_fb <- days_bbw*max_brand_ctb_bbw_fb$total_cost
+brand_ctb_tipping_fb <- max_brand_ctb_bbw_fb$total_cost
+forecast$optimal_pace_fb <-brand_ctb_tipping_fb
+forecast$tipping_order_fb <- tipping_point_fb$total_cost
+
+phasing_per_cent_fb <- (df_bbw_plot_fb$trend+df_bbw_plot_fb$yhat)/sum(df_bbw_plot_fb$trend+df_bbw_plot_fb$yhat)
+df_bbw_plot_fb$marketing_inv_fb <- marketing_inv_fb*phasing_per_cent_fb
+df_bbw_plot_fb$total_orders <- (df_bbw_plot_fb$trend+df_bbw_plot_fb$yhat)
+df_bbw_plot_fb$total_orders_fb <- (marketing_inv_fb*lm_fit$coefficients[1]*phasing_per_cent)
+
+```
+
+```{r plot hill investment forecast Facebook, echo=FALSE, warning=FALSE,message=FALSE,error=FALSE}
+
+highchart(type = "stock") %>% 
+  hc_yAxis_multiples(
+    list(lineWidth = 3),
+    list(showLastLabel = TRUE, opposite = TRUE))%>%
+  
+  hc_add_series(df_bbw_new, "area", hcaes(date, total_cost), name = "Real Investment", yAxis = 1) %>% 
+  hc_add_series(df_bbw_new, "area", hcaes(date, y), name = "Real Orders")%>% 
+  hc_add_series(df_bbw_plot_fb, "area", chart.styledMode =TRUE, hcaes(date, total_orders), name = "Modeled Media Orders", color = "#212F3C")%>% 
+  hc_add_series(df_bbw_plot_fb, "area", chart.styledMode =TRUE, hcaes(date, total_orders_fb), name = "Modeled Facebook Orders", color = "#00FA9A")%>%
+  hc_add_series(df_bbw_plot_fb, "area", hcaes(date, marketing_inv_fb), name = "Modeled Facebook Investment", color = "#241274", 
+                yAxis = 1) %>% 
+  
+  hc_add_series(forecast, "line", dashStyle = 'dot', hcaes(date, optimal_pace_fb), 
+                name = "Optimal Investment Pace", yAxis = 1) %>% 
+  
+  hc_add_series(forecast, "line", dashStyle = 'dot', hcaes(date, tipping_order_fb), 
+                name = "Max Rate of Change", yAxis = 1) %>% 
+  
+  hc_add_series(forecast, "line", dashStyle = 'dot', hcaes(date, saturation_fb), 
+                name = "Saturation Investment", yAxis = 1) %>% 
+  
+  hc_title(text = "Modeling Media Orders and Seasonality BBW UAE",
+           margin = 20, align = "center",
+           style = list(color = "#000000", useHTML = TRUE))%>% 
+  
+  hc_subtitle(text = paste("Facebook Investment Left $", round(marketing_inv_fb, digits =0)),
+              align = "center", style = list(color = "#1D1F3C", fontWeight = "bold"))
+
+```
+
+Google Modeling - BBW UAE {.tabset data-width=400}
+-----------------------------------------------------------------------
+  
+  ```{r MMM BBW GRPS Google, include=FALSE, echo=FALSE,warning=FALSE,message=FALSE,error=FALSE}
+
+#model Google.
+
+df_bbw_mmm$grp1_ga <- df_bbw_mmm$google < 500
+df_bbw_mmm$grp2_ga <- df_bbw_mmm$google >= 500 & df_bbw_mmm$google < 1000
+df_bbw_mmm$grp3_ga <- df_bbw_mmm$google >= 1000 & df_bbw_mmm$google < 2000
+df_bbw_mmm$grp4_ga <- df_bbw_mmm$google >= 2000 & df_bbw_mmm$google < 3000
+df_bbw_mmm$grp5_ga <- df_bbw_mmm$google >= 3000 
+
+
+df_bbw_mmm$grp1_ga <- as.integer(as.logical(df_bbw_mmm$grp1_ga))
+df_bbw_mmm$grp2_ga <- as.integer(as.logical(df_bbw_mmm$grp2_ga))
+df_bbw_mmm$grp3_ga <- as.integer(as.logical(df_bbw_mmm$grp3_ga))
+df_bbw_mmm$grp4_ga <- as.integer(as.logical(df_bbw_mmm$grp4_ga))
+df_bbw_mmm$grp5_ga <- as.integer(as.logical(df_bbw_mmm$grp5_ga))
+
+#start model
+
+
+vars_model_ga <- c("grp1_ga",
+                   "grp2_ga",
+                   "grp3_ga",
+                   "grp4_ga",
+                   "grp5_ga",
+                   "facebook",
+                   "affiliates",
+                   "price",
+                   "seasonal")
+
+var_tgt_ga <- "orders"
+
+
+
+fga <- paste(vars_model_ga, collapse = "+")
+fga <- paste(fga, "-1")
+fga <- paste(var_tgt_ga, fga, sep = "~")
+fga <- as.formula(fga)
+
+lm_fit_ga <- lm(fga, data = df_bbw_mmm)
+summary(lm_fit_ga)
+
+```
+
+
+### Modeling Google
+
+```{r MMM BBW GA UAE Chart, echo=FALSE, warning=FALSE,message=FALSE,error=FALSE}
+
+highchart(type = "chart") %>% 
+  hc_yAxis(title = list(text = "Orders"))%>%
+  hc_add_series(df_bbw_mmm, "area", hcaes(date, orders), name = "Real_orders") %>% 
+  hc_add_series(df_bbw_mmm, "area", hcaes(date, modeled_orders), name = "modeled_orders") %>% 
+  hc_add_series(df_bbw_mmm, "area", hcaes(date, m_google), name = "modeled_google")%>%
+  hc_title(text = "Google fitting BBW UAE",
+           margin = 20, align = "center",
+           style = list(color = "#000000", useHTML = TRUE))
+
+```
+
+
+### Coefficients Google
+
+```{r MMM FB coefs Google, echo=FALSE, warning=FALSE,message=FALSE,error=FALSE}
+
+df_bbw_mmm %>%
+  tabla_coeficientes(model = lm_fit_ga, confidence = .95) %>%
+  datatable_coeficientes()
+
+```
+
+
+```{r MMM BBW Saturation FB, include=FALSE, echo=FALSE,warning=FALSE,message=FALSE,error=FALSE}
+
+
+ga_grp1_cost <- 500
+ga_grp2_cost <- 1000
+ga_grp3_cost <- 2000
+ga_grp4_cost <- 3000
+ga_grp5_cost <- 4000
+
+
+e_grp1_ga <- lm_fit_ga$coefficients[1]
+e_grp2_ga <- lm_fit_ga$coefficients[2]
+e_grp3_ga <- lm_fit_ga$coefficients[3]
+e_grp4_ga <-lm_fit_ga$coefficients[4]
+e_grp5_ga <-lm_fit_ga$coefficients[5]
+
+
+# effect and cost
+ga_effect <- c(e_grp1_ga,e_grp2_ga,e_grp3_ga,e_grp4_ga, e_grp5_ga)
+ga_cost <- c(ga_grp1_cost, ga_grp2_cost, ga_grp3_cost, ga_grp4_cost, ga_grp5_cost)
+
+# Join the variables to create a data frame
+s_ga <- data.frame(ga_effect,ga_cost)
+
+```
+
+### Saturation Facebook
+
+```{r plot scatter Facebook, echo=FALSE, warning=FALSE,message=FALSE,error=FALSE}
+hchart(s_ga, "scatter", hcaes(x = ga_cost, y = ga_effect))
+```
+
+```{r MMM BBW Stop, include=FALSE, echo=FALSE,warning=FALSE,message=FALSE,error=FALSE}
+
+#stop the saturation menu
+
+```
+
+```{r MMM FB hill Facebook, echo=FALSE, include=FALSE, warning=FALSE,message=FALSE,error=FALSE}
+
+attach(s_ga)
+
+m.hill_b_ga <- drm(ga_effect ~ ga_cost, fct = LL.5())
+summary(m.hill_b_ga)
+
+hill_ga <- plot(m.hill_b_ga, broken = TRUE, type = "all",
+                xlab = "Google Media Spend", xlim = c(100, 10000),
+                ylab = "Orders", col="blue")
+
+
+colnames(hill_ga) <- c("total_cost", "orders")
+
+```
+
+
+### Hill function
+
+```{r plot hill f Facebook, echo=TRUE, warning=FALSE,message=FALSE,error=FALSE}
+#Y <- K/(1+exp(-(α+β*x)))
+hchart(hill_ga, "line", hcaes(x = total_cost, y = orders))
+
+```
+
+### Predicted FB Investment
+
+```{r MMM Google calculus, include=FALSE, echo=FALSE,warning=FALSE,message=FALSE,error=FALSE}
+#Define modeling forecast for facebook
+#rate of change, loop tocaluclate difference between rows.
+
+#PL numbers to caluclate max profit or max marketshre
+
+attach(hill_ga)
+aov_bbw <- mean(df_bbw_new$aov)
+hill_ga$gross_rev <- hill_ga$orders*aov_bbw
+hill_ga$store_ctb <-  hill_ga$gross_rev*0.44
+hill_ga$brand_ctb <- hill_ga$store_ctb-hill_ga$total_cost 
+hill_ga$cpo <- hill_fb$total_cost/hill_ga$orders
+
+
+
+diff <- hill_ga %>%
+  mutate(diff = orders - lag(orders, default = first(orders)))
+hill_ga$diff <- diff$diff
+
+#Find Max value hill b max rate of change slope
+
+tipping_point_ga <- hill_ga %>% 
+  filter(diff == max(diff))
+
+max_brand_ctb_bbw_ga <- hill_ga %>% 
+  filter(brand_ctb == max(brand_ctb))
+
+
+max_spend_ga <- hill_ga %>% 
+  filter(diff < 2 & total_cost > mean(total_cost))
+
+saturation_ga <- max_spend_ga  %>% 
+  filter(total_cost == min(total_cost))
+
+forecast$saturation_ga <- saturation_ga$total_cost
+
+
+#forecast prophet facebook
+forecast$date <- as.Date.character(forecast$ds)
+df_bbw_new$date <- as.Date.character(df_bbw_new$ds)
+
+
+#generating phasing from trend + yhat.
+
+#subset forecast dates
+df_bbw_plot_ga <- subset(forecast, date > end_date)
+days_bbw <- as.integer(f_prophet_days)
+
+#fiding tipping point
+
+marketing_inv_ga <- days_bbw*max_brand_ctb_bbw_ga$total_cost
+brand_ctb_tipping_ga <- max_brand_ctb_bbw_ga$total_cost
+forecast$optimal_pace_ga <-brand_ctb_tipping_ga
+forecast$tipping_order_ga <- tipping_point_ga$total_cost
+
+phasing_per_cent_ga <- (df_bbw_plot_ga$trend+df_bbw_plot_ga$yhat)/sum(df_bbw_plot_ga$trend+df_bbw_plot_ga$yhat)
+df_bbw_plot_ga$marketing_inv_ga <- marketing_inv_ga*phasing_per_cent_ga
+df_bbw_plot_ga$total_orders <- (df_bbw_plot_ga$trend+df_bbw_plot_ga$yhat)
+df_bbw_plot_ga$total_orders_ga <- (marketing_inv_ga*lm_fit$coefficients[2]*phasing_per_cent_ga)
+
+```
+
+```{r plot hill investment forecast Facebook, echo=FALSE, warning=FALSE,message=FALSE,error=FALSE}
+
+highchart(type = "stock") %>% 
+  hc_yAxis_multiples(
+    list(lineWidth = 3),
+    list(showLastLabel = TRUE, opposite = TRUE))%>%
+  
+  hc_add_series(df_bbw_new, "area", hcaes(date, total_cost), name = "Real Investment", yAxis = 1) %>% 
+  hc_add_series(df_bbw_new, "area", hcaes(date, y), name = "Real Orders")%>% 
+  hc_add_series(df_bbw_plot_ga, "area", chart.styledMode =TRUE, hcaes(date, total_orders), name = "Modeled Media Orders", color = "#212F3C")%>% 
+  hc_add_series(df_bbw_plot_ga, "area", chart.styledMode =TRUE, hcaes(date, total_orders_ga), name = "Modeled Facebook Orders", color = "#00FA9A")%>%
+  hc_add_series(df_bbw_plot_ga, "area", hcaes(date, marketing_inv_ga), name = "Modeled Google Investment", color = "#241274", 
+                yAxis = 1) %>% 
+  
+  hc_add_series(forecast, "line", dashStyle = 'dot', hcaes(date, optimal_pace_ga), 
+                name = "Optimal Investment Pace", yAxis = 1) %>% 
+  
+  hc_add_series(forecast, "line", dashStyle = 'dot', hcaes(date, tipping_order_ga), 
+                name = "Max Rate of Change", yAxis = 1) %>% 
+  
+  hc_add_series(forecast, "line", dashStyle = 'dot', hcaes(date, saturation_ga), 
+                name = "Saturation Investment", yAxis = 1) %>% 
+  
+  hc_title(text = "Modeling Media Orders and Seasonality BBW UAE",
+           margin = 20, align = "center",
+           style = list(color = "#000000", useHTML = TRUE))%>% 
+  
+  hc_subtitle(text = paste("Facebook Investment Left $", round(marketing_inv_ga, digits =0)),
+              align = "center", style = list(color = "#1D1F3C", fontWeight = "bold"))
+
+```
+
+#loop last and create new column
+
+
+nRowsDf <- nrow(df_bbw_mmm)
+for(i in 1:nRowsDf){
+  df_bbw_mmm[4] = df_bbw_mmm[4]*lm_fit$coefficients[2]
+  print(df_bbw_mmm[4])
+}
+
