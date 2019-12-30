@@ -1055,10 +1055,19 @@ highchart(type = "stock") %>%
 
 #loop last and create new column
 
-
+tt= {}
 nRowsDf <- nrow(df_bbw_mmm)
 for(i in 1:nRowsDf){
-  df_bbw_mmm[4] = df_bbw_mmm[4]*lm_fit$coefficients[2]
-  print(df_bbw_mmm[4])
+  print(df_bbw_mmm[4] )
+  if(df_bbw_mmm[4] > 100 & df_bbw_mmm[4] < 2000){
+      tt =  df_bbw_mmm[4]*lm_fit_ga$coefficients[2]
+    }else if(df_bbw_mmm[4] >= 2000){
+      tt =  df_bbw_mmm[4]*lm_fit_ga$coefficients[3]
+    }else{
+      tt = df_bbw_mmm[4]
+  }
 }
+
+tt
+
 
