@@ -1071,3 +1071,8 @@ for(i in 1:nRowsDf){
 tt
 
 
+
+### if else
+
+tt={}
+tt = ifelse(forecast$ds<end_date,df_all_1$orders,0)
