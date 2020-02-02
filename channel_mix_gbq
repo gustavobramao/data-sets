@@ -1,0 +1,79 @@
+SELECT
+  CASE 
+    WHEN 
+    	source = "(direct)" 
+    	AND 
+    	(medium = "(not set)" OR medium = "(none)") 
+    	THEN "Direct"
+    WHEN 
+    	medium = "organic"
+    	THEN "Organic Search"
+    WHEN
+    	socialSession = "Yes"
+    	OR
+    	REGEXP_CONTAINS(source, r"^(social|facebook|instagram)$")
+    	THEN "Social"
+    WHEN
+    	medium = "email"
+    	THEN "Email"
+    WHEN
+    	medium = "affiliate"
+    	THEN "Affiliates"
+    WHEN
+    	medium = "referral"
+    	THEN "Referral"
+    WHEN
+    	REGEXP_CONTAINS(medium, r"^(cpc|ppc|paidsearch)$")
+    	AND    	
+    	adNetworkType <> "Content"
+    	THEN "Paid Search"
+    WHEN
+    	REGEXP_CONTAINS(medium, r" ^(cpv|cpa|cpp|content-text)$")
+    	THEN "Other Advertising"
+    WHEN
+    	REGEXP_CONTAINS(medium, r"^(display|cpm|banner)$")
+    	OR    	
+    	adNetworkType = "Content"
+    	THEN "Display"
+    ELSE "(Other)"
+  END AS channel,
+  SUM(revenue)/1000000 as revenue,
+  SUM(transactions) as transactions,
+  COUNT(DISTINCT fullVisitorId) AS users, 
+  SUM(sessions) as sessions,
+  SUM(pageviews) as pageviews,
+  SUM(bounces) as bounces
+  
+FROM (
+  SELECT
+  	visitId,
+        fullVisitorId,
+	trafficSource.medium AS medium,
+	trafficSource.source AS source,
+	CASE
+		WHEN
+			COUNTIF(hits.social.hasSocialSourceReferral = "Yes") > 0
+		THEN
+			"Yes"
+		ELSE
+			"No"
+	END AS socialSession,	
+	trafficSource.adwordsClickInfo.adNetworkType AS adNetworkType,
+	MAX(totals.totalTransactionRevenue) AS revenue,
+	MAX(totals.transactions) AS transactions, 
+	MAX(totals.visits) AS sessions, 
+	MAX(totals.pageviews) AS pageviews, 
+	MAX(totals.bounces) AS bounces
+  FROM
+      `authentic-codex-225113.197344933.ga_sessions_*` AS sessionsTable,
+      UNNEST(sessionsTable.hits) AS hits
+  WHERE 
+    sessionsTable._TABLE_SUFFIX BETWEEN "20190101" AND "20191230"
+  GROUP BY 
+    visitId, fullVisitorId, medium, source, adNetworkType
+  )
+ 
+GROUP BY
+  channel
+ORDER BY
+  revenue DESC
