@@ -42,8 +42,8 @@ SELECT
   COUNT(DISTINCT fullVisitorId) AS users, 
   SUM(sessions) as sessions,
   SUM(pageviews) as pageviews,
-  SUM(bounces) as bounces
-  
+  SUM(bounces) as bounces,
+  AVG(Quality) as Quality,
 FROM (
   SELECT
   	visitId,
@@ -63,9 +63,10 @@ FROM (
 	MAX(totals.transactions) AS transactions, 
 	MAX(totals.visits) AS sessions, 
 	MAX(totals.pageviews) AS pageviews, 
-	MAX(totals.bounces) AS bounces
+	MAX(totals.bounces) AS bounces,
+  AVG(totals.sessionQualityDim) as Quality
   FROM
-      `authentic-codex-225113.197344933.ga_sessions_*` AS sessionsTable,
+      `authentic-codex-225113.176008893.ga_sessions_*` AS sessionsTable,
       UNNEST(sessionsTable.hits) AS hits
   WHERE 
     sessionsTable._TABLE_SUFFIX BETWEEN "20190101" AND "20191230"
@@ -76,4 +77,4 @@ FROM (
 GROUP BY
   channel
 ORDER BY
-  revenue DESC
+  sessions DESC
