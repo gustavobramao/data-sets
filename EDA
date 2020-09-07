@@ -1,0 +1,1149 @@
+---
+title: "EDA"
+author: "Gustavo"
+output:
+  html_document:
+    toc: true
+    theme: united
+    toc_float: true
+    chart.styledMode: TRUE
+---
+
+
+
+<img src="https://www.americaneagle.ae/themes/custom/transac/alshaya_american_eagle/site-logo.svg?sjhgdf7v"
+     alt="Markdown Monster icon"
+     style="float: center; margin-right: 10px;" />
+     
+
+```{r setup, include=FALSE, echo=FALSE,warning=FALSE,message=FALSE,error=FALSE}
+
+library(highcharter)
+library(dplyr)
+library(viridisLite)
+library(forecast)
+library(treemap)
+library(flexdashboard)
+library(arules)
+
+library(highcharter)
+library(forecast)
+library(highcharter)
+library(ggplot2)
+library(ggfortify)
+library(prophet)
+library(corrplot)
+library(knitr)
+
+library(bigrquery) 
+library(dplyr) 
+library(DBI)
+library(ggplot2)
+library(bigQueryR)
+
+library(corrplot)
+library(drc)
+library(sandwich)
+library(lmtest)
+
+## BiGQuery Setup
+library(googleAuthR)
+library(searchConsoleR)
+
+options(googleAuthR.scopes.selected = c("https://www.googleapis.com/auth/bigquery",
+                                        "https://www.googleapis.com/auth/analytics"))
+
+library(igraph)
+library(RGoogleAnalytics)
+library(scales)
+library(googleAnalyticsR)
+library(ChannelAttribution)
+library(highcharter)
+library(viridisLite)
+library(forecast)
+library(treemap)
+library(rlang)
+library(shiny)
+
+library(knitr)
+library(kableExtra)
+library(plotly)
+
+library(doParallel)
+library(bsts)
+library(rstan)
+library(broom)
+library(rlang)
+library(DT)
+library(tidyverse)
+library(corrplot)
+
+
+gar_auth_service("conn.json")
+knitr::opts_chunk$set(echo = TRUE)
+
+
+```
+
+
+
+```{r, include=F, echo=FALSE,warning=FALSE,message=FALSE,error=FALSE}
+
+# BigQuery Auth
+bq_auth(path = "conn.json")
+projectid<-'uts-mdsi'
+datasetid<-'stds_assignment'
+bq_conn <-  dbConnect(bigquery(), 
+                      project = "authentic-codex-225113",
+                      dataset = "monaliza_bi", 
+                      use_legacy_sql = FALSE
+)
+
+bigrquery::dbListTables(bq_conn)
+
+start_date <- "2020-06-05"
+end_date <- Sys.Date()
+
+
+
+
+sql_query <- sprintf("SELECT
+date,
+SUM(orders) as orders,
+(SUM(affiliate_cost) + SUM(cost)) as total_cost,
+SUM(session) as sessions,
+sum(new_customers) as new_cst,
+(SUM(affiliate_cost) + SUM(cost)) / sum(orders) as CPO,
+(SUM(affiliate_cost) + SUM(cost)) / sum(new_customers) as CPA,
+(SUM(affiliate_cost) + SUM(cost)) / sum(gross_revenue) as CIR,
+(SUM(affiliate_cost) + SUM(cost)) / SUM(session) as CPV,
+sum(orders)/sum(session)*100 as CvR
+ 
+FROM `authentic-codex-225113.monaliza_bi.daily_cost_session_orders`
+where brand = 'aeo' and date between '2020-06-05' and '2020-09-06'
+ 
+group by
+1
+ 
+order by date asc", start_date, end_date)
+
+offence_qtr <- bq_project_query('authentic-codex-225113', sql_query)
+df <- bq_table_download(offence_qtr)
+
+```
+
+
+
+Time Series  {.tabset data-width=400}
+-----------------------------------------------------------------------
+
+### Cost x CIR
+
+```{r, echo=F,warning=FALSE,message=FALSE,error=FALSE}
+
+
+ay <- list(
+    #tickfont = list(color = "red"),
+    overlaying = "y",
+    side = "right"
+  )
+
+
+p <- plot_ly(df) %>%
+    add_lines(x = ~date, y = ~total_cost, name = "total cost",type = "scatter", mode = "lines") %>%
+    add_lines(x = ~date, y = ~CIR, name = "CiR", yaxis = "y2",type = "scatter", mode = "lines") %>%
+    layout(
+      title = "Cost x CIR", yaxis2 = ay,
+      xaxis = list(title="Date")
+    )
+
+p
+```
+
+
+### Cost x sessions
+
+```{r, echo=F,warning=FALSE,message=FALSE,error=FALSE}
+
+ay <- list(
+    #tickfont = list(color = "red"),
+    overlaying = "y",
+    side = "right"
+  )
+
+
+p <- plot_ly(df) %>%
+    add_lines(x = ~date, y = ~total_cost, name = "total cost",type = "scatter", mode = "lines") %>%
+    add_lines(x = ~date, y = ~sessions, name = "sessions", yaxis = "y2",type = "scatter", mode = "lines") %>%
+    layout(
+      title = "Cost x Sessions", yaxis2 = ay,
+      xaxis = list(title="Date")
+    )
+
+p
+```
+
+
+### Cost x Orders
+
+```{r, echo=F,warning=FALSE,message=FALSE,error=FALSE}
+
+ay <- list(
+    #tickfont = list(color = "red"),
+    overlaying = "y",
+    side = "right"
+  )
+
+
+p <- plot_ly(df) %>%
+    add_lines(x = ~date, y = ~total_cost, name = "total cost",type = "scatter", mode = "lines") %>%
+    add_lines(x = ~date, y = ~orders, name = "orders", yaxis = "y2",type = "scatter", mode = "lines") %>%
+    layout(
+      title = "Cost x Orders", yaxis2 = ay,
+      xaxis = list(title="Date")
+    )
+
+p
+```
+
+
+
+### Sessions x CvR
+
+```{r, echo=F,warning=FALSE,message=FALSE,error=FALSE}
+
+ay <- list(
+    #tickfont = list(color = "red"),
+    overlaying = "y",
+    side = "right"
+  )
+
+
+p <- plot_ly(df) %>%
+    add_lines(x = ~date, y = ~sessions, name = "Sessions",type = "scatter", mode = "lines") %>%
+    add_lines(x = ~date, y = ~CvR, name = "CvR", yaxis = "y2",type = "scatter", mode = "lines") %>%
+    layout(
+      title = "Sessions x CvR", yaxis2 = ay,
+      xaxis = list(title="Date")
+    )
+
+p
+```
+
+
+## Conclusions
+
+1. Low/moderate correlation between marketing spend and CIR
+2. High correlation between marketing spend and orders
+3. High correlation between marketing spend and sessions
+4. High correlation between marketing spend and new customers
+4. Negative low moderate correlation sessions and CvR (the way to interpret this one: the closest the coeff the 0 the strongest the execution) 
+
+```{r, echo=F,warning=FALSE,message=FALSE,error=FALSE}
+
+attach(df)
+
+#Visualize correlation between variables.
+newdatacor = cor(df[2:10])
+corrplot(newdatacor, method = "number")
+
+```
+
+
+Diminishing returns{.tabset data-width=400}
+-----------------------------------------------------------------------
+
+### Hill Function Orders
+
+```{r, echo=FALSE,warning=FALSE,message=FALSE,error=FALSE}
+
+attach(df)
+
+m.hill_b <- drm(orders ~ total_cost, fct = LL.5())
+summary(m.hill_b)
+
+hill_b <- plot(m.hill_b, broken = TRUE, type = "all",
+               xlab = "Media Spend", xlim = c(100, 28000),
+               ylab = "Orders", col="blue")
+
+
+colnames(hill_b) <- c("total_cost", "orders")
+
+```
+
+### Tipping Point
+
+$$       
+Y = k\frac{1}{1+\exp(\alpha+\beta * x)}
+$$
+
+```{r, echo=TRUE,warning=FALSE,message=FALSE,error=FALSE}
+hchart(hill_b, "line", hcaes(x = total_cost, y = orders))
+```
+
+
+## Conclusions
+
+1. Non linear relation between marketing spend and orders.
+2. We should not invest more than 21k$ per day cap independent of the order target.
+
+----------------------
+
+
+```{r, include=F, echo=FALSE,warning=FALSE,message=FALSE,error=FALSE}
+
+# BigQuery Auth
+bq_auth(path = "conn.json")
+projectid<-'uts-mdsi'
+datasetid<-'stds_assignment'
+bq_conn <-  dbConnect(bigquery(), 
+                      project = "authentic-codex-225113",
+                      dataset = "monaliza_bi", 
+                      use_legacy_sql = FALSE
+)
+
+bigrquery::dbListTables(bq_conn)
+
+start_date <- "2020-06-05"
+end_date <- Sys.Date()
+
+
+
+
+sql_query <- sprintf("SELECT
+date,
+SUM(orders) as orders,
+(SUM(affiliate_cost) + SUM(cost)) as total_cost,
+SUM(session) as sessions,
+sum(new_customers) as new_cst,
+(SUM(affiliate_cost) + SUM(cost)) / sum(orders) as CPO,
+(SUM(affiliate_cost) + SUM(cost)) / sum(new_customers) as CPA,
+(SUM(affiliate_cost) + SUM(cost)) / sum(gross_revenue) as CIR,
+(SUM(affiliate_cost) + SUM(cost)) / SUM(session) as CPV,
+sum(orders)/sum(session)*100 as CvR
+ 
+FROM `authentic-codex-225113.monaliza_bi.daily_cost_session_orders`
+where brand_country = 'AO_KSA' and date between '2020-06-05' and '2020-09-06'
+ 
+group by
+1
+ 
+order by date asc", start_date, end_date)
+
+offence_qtr <- bq_project_query('authentic-codex-225113', sql_query)
+df <- bq_table_download(offence_qtr)
+
+```
+
+
+
+<img src="https://www.americaneagle.ae/themes/custom/transac/alshaya_american_eagle/site-logo.svg?sjhgdf7v"
+     alt="Markdown Monster icon"
+     style="float: center; margin-right: 10px;" />
+     
+
+
+Time Series KSA {.tabset data-width=400}
+-----------------------------------------------------------------------
+  
+### Cost x CIR
+  
+  
+```{r, echo=F,warning=FALSE,message=FALSE,error=FALSE}
+
+ay <- list(
+  #tickfont = list(color = "red"),
+  overlaying = "y",
+  side = "right"
+)
+
+
+p <- plot_ly(df) %>%
+  add_lines(x = ~date, y = ~total_cost, name = "total cost",type = "scatter", mode = "lines") %>%
+  add_lines(x = ~date, y = ~CIR, name = "CiR", yaxis = "y2",type = "scatter", mode = "lines") %>%
+  layout(
+    title = "Cost x CIR", yaxis2 = ay,
+    xaxis = list(title="Date")
+  )
+
+p
+```
+
+
+### Cost x sessions
+
+```{r, echo=F,warning=FALSE,message=FALSE,error=FALSE}
+
+ay <- list(
+  #tickfont = list(color = "red"),
+  overlaying = "y",
+  side = "right"
+)
+
+
+p <- plot_ly(df) %>%
+  add_lines(x = ~date, y = ~total_cost, name = "total cost",type = "scatter", mode = "lines") %>%
+  add_lines(x = ~date, y = ~sessions, name = "sessions", yaxis = "y2",type = "scatter", mode = "lines") %>%
+  layout(
+    title = "Cost x Sessions", yaxis2 = ay,
+    xaxis = list(title="Date")
+  )
+
+p
+```
+
+
+### Cost x Orders
+
+```{r, echo=F,warning=FALSE,message=FALSE,error=FALSE}
+
+ay <- list(
+  #tickfont = list(color = "red"),
+  overlaying = "y",
+  side = "right"
+)
+
+
+p <- plot_ly(df) %>%
+  add_lines(x = ~date, y = ~total_cost, name = "total cost",type = "scatter", mode = "lines") %>%
+  add_lines(x = ~date, y = ~orders, name = "orders", yaxis = "y2",type = "scatter", mode = "lines") %>%
+  layout(
+    title = "Cost x Orders", yaxis2 = ay,
+    xaxis = list(title="Date")
+  )
+
+p
+```
+
+
+
+### Sessions x CvR
+
+```{r, echo=F,warning=FALSE,message=FALSE,error=FALSE}
+
+ay <- list(
+  #tickfont = list(color = "red"),
+  overlaying = "y",
+  side = "right"
+)
+
+
+p <- plot_ly(df) %>%
+  add_lines(x = ~date, y = ~sessions, name = "Sessions",type = "scatter", mode = "lines") %>%
+  add_lines(x = ~date, y = ~CvR, name = "CvR", yaxis = "y2",type = "scatter", mode = "lines") %>%
+  layout(
+    title = "Sessions x CvR", yaxis2 = ay,
+    xaxis = list(title="Date")
+  )
+
+p
+```
+
+
+## Conclusions KSA
+
+1. NO correlation between marketing spend and CIR
+2. High correlation between marketing spend and orders
+3. High correlation between marketing spend and sessions
+4. High correlation between marketing spend and new customers
+4. Moderate high correlation between sessions and CvR (the way to interpret this one: the closest the coeff the 0 the strongest the execution, in this case room to scale more traffic) 
+
+```{r, echo=F,warning=FALSE,message=FALSE,error=FALSE}
+
+attach(df)
+
+#Visualize correlation between variables.
+newdatacor = cor(df[2:10])
+corrplot(newdatacor, method = "number")
+
+```
+
+
+Diminishing returns KSA {.tabset data-width=400}
+-----------------------------------------------------------------------
+  
+### Hill Function Orders
+  
+```{r, echo=FALSE,warning=FALSE,message=FALSE,error=FALSE}
+
+attach(df)
+
+m.hill_b <- drm(orders ~ total_cost, fct = LL.5())
+summary(m.hill_b)
+
+hill_b <- plot(m.hill_b, broken = TRUE, type = "all",
+               xlab = "Media Spend", xlim = c(100, 16000),
+               ylab = "Orders", col="blue")
+
+
+colnames(hill_b) <- c("total_cost", "orders")
+
+```
+
+### Tipping Point
+
+$$       
+  Y = k\frac{1}{1+\exp(\alpha+\beta * x)}
+$$
+  
+```{r, echo=TRUE,warning=FALSE,message=FALSE,error=FALSE}
+hchart(hill_b, "line", hcaes(x = total_cost, y = orders))
+```
+
+
+## Conclusions KSA
+
+1. Exponential relation between marketing spend and orders.
+2. We have not yet reached saturation and we can keep on increasing the spends, room for exploration.
+
+----------------------
+
+  
+```{r, include=F, echo=FALSE,warning=FALSE,message=FALSE,error=FALSE}
+
+# BigQuery Auth
+bq_auth(path = "conn.json")
+projectid<-'uts-mdsi'
+datasetid<-'stds_assignment'
+bq_conn <-  dbConnect(bigquery(), 
+                      project = "authentic-codex-225113",
+                      dataset = "monaliza_bi", 
+                      use_legacy_sql = FALSE
+)
+
+bigrquery::dbListTables(bq_conn)
+
+start_date <- "2020-06-05"
+end_date <- Sys.Date()
+
+
+
+
+sql_query <- sprintf("SELECT
+date,
+SUM(orders) as orders,
+(SUM(affiliate_cost) + SUM(cost)) as total_cost,
+SUM(session) as sessions,
+sum(new_customers) as new_cst,
+(SUM(affiliate_cost) + SUM(cost)) / sum(orders) as CPO,
+(SUM(affiliate_cost) + SUM(cost)) / sum(new_customers) as CPA,
+(SUM(affiliate_cost) + SUM(cost)) / sum(gross_revenue) as CIR,
+(SUM(affiliate_cost) + SUM(cost)) / SUM(session) as CPV,
+sum(orders)/sum(session)*100 as CvR
+ 
+FROM `authentic-codex-225113.monaliza_bi.daily_cost_session_orders`
+where brand_country = 'AO_UAE' and date between '2020-06-05' and '2020-09-06'
+ 
+group by
+1
+ 
+order by date asc", start_date, end_date)
+
+offence_qtr <- bq_project_query('authentic-codex-225113', sql_query)
+df <- bq_table_download(offence_qtr)
+
+```
+
+
+
+<img src="https://www.americaneagle.ae/themes/custom/transac/alshaya_american_eagle/site-logo.svg?sjhgdf7v"
+alt="Markdown Monster icon"
+style="float: center; margin-right: 10px;" />
+  
+  
+  
+Time Series UAE {.tabset data-width=400}
+-----------------------------------------------------------------------
+  
+### Cost x CIR
+  
+  
+```{r, echo=F,warning=FALSE,message=FALSE,error=FALSE}
+
+ay <- list(
+  #tickfont = list(color = "red"),
+  overlaying = "y",
+  side = "right"
+)
+
+
+p <- plot_ly(df) %>%
+  add_lines(x = ~date, y = ~total_cost, name = "total cost",type = "scatter", mode = "lines") %>%
+  add_lines(x = ~date, y = ~CIR, name = "CiR", yaxis = "y2",type = "scatter", mode = "lines") %>%
+  layout(
+    title = "Cost x CIR", yaxis2 = ay,
+    xaxis = list(title="Date")
+  )
+
+p
+```
+
+
+### Cost x sessions
+
+```{r, echo=F,warning=FALSE,message=FALSE,error=FALSE}
+
+ay <- list(
+  #tickfont = list(color = "red"),
+  overlaying = "y",
+  side = "right"
+)
+
+
+p <- plot_ly(df) %>%
+  add_lines(x = ~date, y = ~total_cost, name = "total cost",type = "scatter", mode = "lines") %>%
+  add_lines(x = ~date, y = ~sessions, name = "sessions", yaxis = "y2",type = "scatter", mode = "lines") %>%
+  layout(
+    title = "Cost x Sessions", yaxis2 = ay,
+    xaxis = list(title="Date")
+  )
+
+p
+```
+
+
+### Cost x Orders
+
+```{r, echo=F,warning=FALSE,message=FALSE,error=FALSE}
+
+ay <- list(
+  #tickfont = list(color = "red"),
+  overlaying = "y",
+  side = "right"
+)
+
+
+p <- plot_ly(df) %>%
+  add_lines(x = ~date, y = ~total_cost, name = "total cost",type = "scatter", mode = "lines") %>%
+  add_lines(x = ~date, y = ~orders, name = "orders", yaxis = "y2",type = "scatter", mode = "lines") %>%
+  layout(
+    title = "Cost x Orders", yaxis2 = ay,
+    xaxis = list(title="Date")
+  )
+
+p
+```
+
+
+
+### Sessions x CvR
+
+```{r, echo=F,warning=FALSE,message=FALSE,error=FALSE}
+
+ay <- list(
+  #tickfont = list(color = "red"),
+  overlaying = "y",
+  side = "right"
+)
+
+
+p <- plot_ly(df) %>%
+  add_lines(x = ~date, y = ~sessions, name = "Sessions",type = "scatter", mode = "lines") %>%
+  add_lines(x = ~date, y = ~CvR, name = "CvR", yaxis = "y2",type = "scatter", mode = "lines") %>%
+  layout(
+    title = "Sessions x CvR", yaxis2 = ay,
+    xaxis = list(title="Date")
+  )
+
+p
+```
+
+
+## Conclusions UAE
+
+1. Correlation between marketing spend and CIR, however skewed by the paused off marketing during last weeks, remove the past weeks coeff drops at 0.19
+2. Moderate correlation between marketing spend and orders
+3. Moderate to high correlation between marketing spend and sessions
+4. Moderate to high correlation marketing spend and new customers
+4. Moderate high correlation between sessions and CvR (the way to interpret this one: the closest the coeff the 0 the strongest the execution, in this case room to scale more traffic) 
+
+```{r, echo=F,warning=FALSE,message=FALSE,error=FALSE}
+
+attach(df)
+
+#Visualize correlation between variables.
+newdatacor = cor(df[2:10])
+corrplot(newdatacor, method = "number")
+
+```
+
+
+Diminishing returns UAE {.tabset data-width=400}
+-----------------------------------------------------------------------
+  
+### Hill Function Orders
+  
+```{r, echo=FALSE,warning=FALSE,message=FALSE,error=FALSE}
+
+attach(df)
+
+m.hill_b <- drm(orders ~ total_cost, fct = LL.5())
+summary(m.hill_b)
+
+hill_b <- plot(m.hill_b, broken = TRUE, type = "all",
+               xlab = "Media Spend", xlim = c(100, 7000),
+               ylab = "Orders", col="blue")
+
+
+colnames(hill_b) <- c("total_cost", "orders")
+
+```
+
+### Tipping Point
+
+$$       
+  Y = k\frac{1}{1+\exp(\alpha+\beta * x)}
+$$
+  
+```{r, echo=TRUE,warning=FALSE,message=FALSE,error=FALSE}
+hchart(hill_b, "line", hcaes(x = total_cost, y = orders))
+```
+
+
+## Conclusions UAE
+
+1. Non linear relation between marketing spend and orders.
+2. We have reached saturation quite fast and we should not increase CIR or absolute cap spend above 3.5k$, this matches quite well with the lower size of the market.
+
+
+----------------------
+  
+  
+```{r, include=F, echo=FALSE,warning=FALSE,message=FALSE,error=FALSE}
+
+# BigQuery Auth
+bq_auth(path = "conn.json")
+projectid<-'uts-mdsi'
+datasetid<-'stds_assignment'
+bq_conn <-  dbConnect(bigquery(), 
+                      project = "authentic-codex-225113",
+                      dataset = "monaliza_bi", 
+                      use_legacy_sql = FALSE
+)
+
+bigrquery::dbListTables(bq_conn)
+
+start_date <- "2020-06-05"
+end_date <- Sys.Date()
+
+
+
+
+sql_query <- sprintf("SELECT
+date,
+SUM(orders) as orders,
+(SUM(affiliate_cost) + SUM(cost)) as total_cost,
+SUM(session) as sessions,
+sum(new_customers) as new_cst,
+(SUM(affiliate_cost) + SUM(cost)) / sum(orders) as CPO,
+(SUM(affiliate_cost) + SUM(cost)) / sum(new_customers) as CPA,
+(SUM(affiliate_cost) + SUM(cost)) / sum(gross_revenue) as CIR,
+(SUM(affiliate_cost) + SUM(cost)) / SUM(session) as CPV,
+sum(orders)/sum(session)*100 as CvR
+ 
+FROM `authentic-codex-225113.monaliza_bi.daily_cost_session_orders`
+where brand_country = 'AO_EGY' and date between '2020-06-05' and '2020-09-06'
+ 
+group by
+1
+ 
+order by date asc", start_date, end_date)
+
+offence_qtr <- bq_project_query('authentic-codex-225113', sql_query)
+df <- bq_table_download(offence_qtr)
+
+```
+
+
+
+<img src="https://www.americaneagle.ae/themes/custom/transac/alshaya_american_eagle/site-logo.svg?sjhgdf7v"
+alt="Markdown Monster icon"
+style="float: center; margin-right: 10px;" />
+  
+  
+  
+Time Series EGY {.tabset data-width=400}
+-----------------------------------------------------------------------
+  
+### Cost x CIR
+  
+  
+```{r, echo=F,warning=FALSE,message=FALSE,error=FALSE}
+
+ay <- list(
+  #tickfont = list(color = "red"),
+  overlaying = "y",
+  side = "right"
+)
+
+
+p <- plot_ly(df) %>%
+  add_lines(x = ~date, y = ~total_cost, name = "total cost",type = "scatter", mode = "lines") %>%
+  add_lines(x = ~date, y = ~CIR, name = "CiR", yaxis = "y2",type = "scatter", mode = "lines") %>%
+  layout(
+    title = "Cost x CIR", yaxis2 = ay,
+    xaxis = list(title="Date")
+  )
+
+p
+```
+
+
+### Cost x sessions
+
+```{r, echo=F,warning=FALSE,message=FALSE,error=FALSE}
+
+ay <- list(
+  #tickfont = list(color = "red"),
+  overlaying = "y",
+  side = "right"
+)
+
+
+p <- plot_ly(df) %>%
+  add_lines(x = ~date, y = ~total_cost, name = "total cost",type = "scatter", mode = "lines") %>%
+  add_lines(x = ~date, y = ~sessions, name = "sessions", yaxis = "y2",type = "scatter", mode = "lines") %>%
+  layout(
+    title = "Cost x Sessions", yaxis2 = ay,
+    xaxis = list(title="Date")
+  )
+
+p
+```
+
+
+### Cost x Orders
+
+```{r, echo=F,warning=FALSE,message=FALSE,error=FALSE}
+
+ay <- list(
+  #tickfont = list(color = "red"),
+  overlaying = "y",
+  side = "right"
+)
+
+
+p <- plot_ly(df) %>%
+  add_lines(x = ~date, y = ~total_cost, name = "total cost",type = "scatter", mode = "lines") %>%
+  add_lines(x = ~date, y = ~orders, name = "orders", yaxis = "y2",type = "scatter", mode = "lines") %>%
+  layout(
+    title = "Cost x Orders", yaxis2 = ay,
+    xaxis = list(title="Date")
+  )
+
+p
+```
+
+
+
+### Sessions x CvR
+
+```{r, echo=F,warning=FALSE,message=FALSE,error=FALSE}
+
+ay <- list(
+  #tickfont = list(color = "red"),
+  overlaying = "y",
+  side = "right"
+)
+
+
+p <- plot_ly(df) %>%
+  add_lines(x = ~date, y = ~sessions, name = "Sessions",type = "scatter", mode = "lines") %>%
+  add_lines(x = ~date, y = ~CvR, name = "CvR", yaxis = "y2",type = "scatter", mode = "lines") %>%
+  layout(
+    title = "Sessions x CvR", yaxis2 = ay,
+    xaxis = list(title="Date")
+  )
+
+p
+```
+
+
+## Conclusions EGY
+
+1. Strong correlation between marketing spend and CIR (skewed by launching phase and paused phased, removing those two period coeff at 0.23)
+2. Moderate to high correlation between marketing spend and orders
+3. Moderate to high correlation between marketing spend and sessions
+4. Moderate to high correlation between marketing spend and new customers
+4. NO correlation between sessions and CvR (the way to interpret this one: the closest the coeff the 0 the strongest the execution, in this case room to scale more traffic) 
+
+```{r, echo=F,warning=FALSE,message=FALSE,error=FALSE}
+
+attach(df)
+
+#Visualize correlation between variables.
+newdatacor = cor(df[2:10])
+corrplot(newdatacor, method = "number")
+
+```
+
+
+Diminishing returns EGY {.tabset data-width=400}
+-----------------------------------------------------------------------
+  
+### Hill Function Orders
+  
+```{r, echo=FALSE,warning=FALSE,message=FALSE,error=FALSE}
+
+attach(df)
+
+m.hill_b <- drm(orders ~ total_cost, fct = LL.5())
+summary(m.hill_b)
+
+hill_b <- plot(m.hill_b, broken = TRUE, type = "all",
+               xlab = "Media Spend", xlim = c(100, 12000),
+               ylab = "Orders", col="blue")
+
+
+colnames(hill_b) <- c("total_cost", "orders")
+
+```
+
+### Tipping Point
+
+$$       
+  Y = k\frac{1}{1+\exp(\alpha+\beta * x)}
+$$
+  
+```{r, echo=TRUE,warning=FALSE,message=FALSE,error=FALSE}
+hchart(hill_b, "line", hcaes(x = total_cost, y = orders))
+```
+
+
+## Conclusions EGY
+
+1. Exponential relation between marketing spend and orders.
+2. However we apparently reached saturation on couple of data points and should not exceed 5.5k$ independent of the sales target.
+
+
+----------------------
+  
+  
+```{r, include=F, echo=FALSE,warning=FALSE,message=FALSE,error=FALSE}
+
+# BigQuery Auth
+bq_auth(path = "conn.json")
+projectid<-'uts-mdsi'
+datasetid<-'stds_assignment'
+bq_conn <-  dbConnect(bigquery(), 
+                      project = "authentic-codex-225113",
+                      dataset = "monaliza_bi", 
+                      use_legacy_sql = FALSE
+)
+
+bigrquery::dbListTables(bq_conn)
+
+start_date <- "2020-06-05"
+end_date <- Sys.Date()
+
+
+
+
+sql_query <- sprintf("SELECT
+date,
+SUM(orders) as orders,
+(SUM(affiliate_cost) + SUM(cost)) as total_cost,
+SUM(session) as sessions,
+sum(new_customers) as new_cst,
+(SUM(affiliate_cost) + SUM(cost)) / sum(orders) as CPO,
+(SUM(affiliate_cost) + SUM(cost)) / sum(new_customers) as CPA,
+(SUM(affiliate_cost) + SUM(cost)) / sum(gross_revenue) as CIR,
+(SUM(affiliate_cost) + SUM(cost)) / SUM(session) as CPV,
+sum(orders)/sum(session)*100 as CvR
+ 
+FROM `authentic-codex-225113.monaliza_bi.daily_cost_session_orders`
+where brand_country = 'AO_KWT' and date between '2020-07-10' and '2020-09-06'
+ 
+group by
+1
+ 
+order by date asc", start_date, end_date)
+
+offence_qtr <- bq_project_query('authentic-codex-225113', sql_query)
+df <- bq_table_download(offence_qtr)
+
+```
+
+
+
+<img src="https://www.americaneagle.ae/themes/custom/transac/alshaya_american_eagle/site-logo.svg?sjhgdf7v"
+alt="Markdown Monster icon"
+style="float: center; margin-right: 10px;" />
+  
+  
+  
+Time Series KWT {.tabset data-width=400}
+-----------------------------------------------------------------------
+  
+### Cost x CIR
+  
+  
+```{r, echo=F,warning=FALSE,message=FALSE,error=FALSE}
+
+ay <- list(
+  #tickfont = list(color = "red"),
+  overlaying = "y",
+  side = "right"
+)
+
+
+p <- plot_ly(df) %>%
+  add_lines(x = ~date, y = ~total_cost, name = "total cost",type = "scatter", mode = "lines") %>%
+  add_lines(x = ~date, y = ~CIR, name = "CiR", yaxis = "y2",type = "scatter", mode = "lines") %>%
+  layout(
+    title = "Cost x CIR", yaxis2 = ay,
+    xaxis = list(title="Date")
+  )
+
+p
+```
+
+
+### Cost x sessions
+
+```{r, echo=F,warning=FALSE,message=FALSE,error=FALSE}
+
+ay <- list(
+  #tickfont = list(color = "red"),
+  overlaying = "y",
+  side = "right"
+)
+
+
+p <- plot_ly(df) %>%
+  add_lines(x = ~date, y = ~total_cost, name = "total cost",type = "scatter", mode = "lines") %>%
+  add_lines(x = ~date, y = ~sessions, name = "sessions", yaxis = "y2",type = "scatter", mode = "lines") %>%
+  layout(
+    title = "Cost x Sessions", yaxis2 = ay,
+    xaxis = list(title="Date")
+  )
+
+p
+```
+
+
+### Cost x Orders
+
+```{r, echo=F,warning=FALSE,message=FALSE,error=FALSE}
+
+ay <- list(
+  #tickfont = list(color = "red"),
+  overlaying = "y",
+  side = "right"
+)
+
+
+p <- plot_ly(df) %>%
+  add_lines(x = ~date, y = ~total_cost, name = "total cost",type = "scatter", mode = "lines") %>%
+  add_lines(x = ~date, y = ~orders, name = "orders", yaxis = "y2",type = "scatter", mode = "lines") %>%
+  layout(
+    title = "Cost x Orders", yaxis2 = ay,
+    xaxis = list(title="Date")
+  )
+
+p
+```
+
+
+
+### Sessions x CvR
+
+```{r, echo=F,warning=FALSE,message=FALSE,error=FALSE}
+
+ay <- list(
+  #tickfont = list(color = "red"),
+  overlaying = "y",
+  side = "right"
+)
+
+
+p <- plot_ly(df) %>%
+  add_lines(x = ~date, y = ~sessions, name = "Sessions",type = "scatter", mode = "lines") %>%
+  add_lines(x = ~date, y = ~CvR, name = "CvR", yaxis = "y2",type = "scatter", mode = "lines") %>%
+  layout(
+    title = "Sessions x CvR", yaxis2 = ay,
+    xaxis = list(title="Date")
+  )
+
+p
+```
+
+
+## Conclusions KWT
+
+1. Correlation between marketing spend and CIR 
+2. Low to moderate correlation between marketing spend and orders
+3. Low to moderate correlation between marketing spend and orders
+4. Moderate to high correlation between marketing spend and new customers
+4. NO correlation between sessions and CvR (the way to interpret this one: the closest the coeff the 0 the strongest the execution, in this case room to scale more traffic) 
+
+```{r, echo=F,warning=FALSE,message=FALSE,error=FALSE}
+
+attach(df)
+
+#Visualize correlation between variables.
+newdatacor = cor(df[2:10])
+corrplot(newdatacor, method = "number")
+
+```
+
+
+Diminishing returns KWT {.tabset data-width=400}
+-----------------------------------------------------------------------
+  
+### Hill Function Orders
+  
+```{r, echo=FALSE,warning=FALSE,message=FALSE,error=FALSE}
+
+attach(df)
+
+m.hill_b <- drm(orders ~ total_cost, fct = LL.5())
+summary(m.hill_b)
+
+hill_b <- plot(m.hill_b, broken = TRUE, type = "all",
+               xlab = "Media Spend", xlim = c(1000, 10000),
+               ylab = "Orders", col="blue")
+
+
+colnames(hill_b) <- c("total_cost", "orders")
+
+```
+
+### Tipping Point
+
+$$       
+  Y = k\frac{1}{1+\exp(\alpha+\beta * x)}
+$$
+  
+```{r, echo=TRUE,warning=FALSE,message=FALSE,error=FALSE}
+hchart(hill_b, "line", hcaes(x = total_cost, y = orders))
+```
+
+
+## Conclusions KWT
+
+1. No valid business interpretation low correlation and odd relation. Will need to dig deeper at channel level.
+
+----------------------  
+
+<img src="https://www.americaneagle.ae/themes/custom/transac/alshaya_american_eagle/site-logo.svg?sjhgdf7v"
+alt="Markdown Monster icon"
+style="float: center; margin-right: 10px;" />
+  
+
+## Recommendations
+
+1. We should not be changing CPOs/CPAs or CIRs more that on weekly basis and we need a clear CIR cap based on accurate GM% forecast - We can cap under certain narrow circumstances put a max cash value cap to not reach saturation.
+
+2. We should not pause the channels for the sake of without a proper hypothesis and robust framework to measure the impact host brand and entire advertisement industry relies on causal methods to quantify impact of advertisement, we recommend therefore working together on measurement and optimization roadmap to limit opportunity cost of testing.
+
+3. We should not being investing aggressively to try to increase CvR% as the opposite effect will happen CvR will decrease every time we increase the spends as observed in the EDA.
+
+4. Recommendation on CIR will depend on the GM% margin forecast, but overall if cash profit is what we are chasing we will recommend to not go above 18% CIR at a macro level to limit risks and exposure and has seen increasing CIR% does not mean increasing marketing cash value, CvR is the driver.
+
+5. We recommend testing a good offer with anticipated higher CvR, and with a much lower CIR 5% to understand the impact in top and bottom line.
+
+
+## Disclaimer
+
+This document does not attempt to make causal inference that increasing spend by x% cause order to increase by x%.
