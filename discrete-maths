@@ -1,0 +1,50 @@
+---
+title: "discrete_math_1"
+author: "gustavo bramao"
+date: "8/26/2020"
+output: html_document
+toc: true
+number_sections: true
+toc_float: yes
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(latexpdf)
+```
+
+
+## Sets and anotations
+
+
+```{r, warning=FALSE,results='hide'}
+
+"t if 1
+
+Begin t ← 1 ; 
+
+Repeat t ← t + 1 ; 
+Until (t | n) or (t = n − 1) ;
+If (t | n) Then Output(t, “is a proper divisor of”,n) ; 
+Else Output(n,“is prime”) ; 
+End ; 
+
+End."
+  
+
+```
+
+## Main anotations
+
+
+$$       
+x\in S (x . is .an.element.of.S)
+$$
+$$       
+W = \{x:X \in Z, 0 < x \leq 99\: and \: 3|x \}
+$$
+```{r, warning=FALSE,results='hide'}
+
+"Means that W is the set of all objects x such that is x is an integer and that x superior to 0 and inferior or equal to 99 and also 3 dividies evenly into x"
+
+```
