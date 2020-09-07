@@ -1,0 +1,144 @@
+library(dplyr)
+library(prophet)
+library(bigrquery)
+library(bigQueryR)
+library(googleAuthR)
+library(gsheet)
+library(config)
+
+options(googleAuthR.scopes.selected = c(
+  "https://www.googleapis.com/auth/bigquery",
+  "https://www.googleapis.com/auth/analytics")
+)
+
+library(RGoogleAnalytics)
+library(knitr)
+library(googleAnalyticsR)
+library(gtrendsR)
+
+if (config::is_active("production")){
+  print("Environment is production")
+  setwd('/var/www/shiny_app')
+}
+
+if (config::is_active("default")){
+  print("Environment is default")
+}
+
+
+gar_auth_service("conn.json")
+knitr::opts_chunk$set(echo = TRUE)
+
+###
+### ----- Filter Date
+###
+start_date <- "2019-01-01"
+end_date <- Sys.Date()
+
+###
+### ----  Query all brands and
+###
+
+# BigQuery Auth
+bq_conn <- get_bq_conn()
+bigrquery::dbListTables(bq_conn)
+
+sql_query <- sprintf("SELECT*
+FROM `authentic-codex-225113.monaliza_bi.daily_cost_session_orders`
+where date between '%s' and '%s' 
+order by date asc", start_date, end_date)
+
+
+offence_qtr <- bq_project_query('authentic-codex-225113', sql_query)
+df_all <- bq_table_download(offence_qtr)
+
+df_all$gm_per_cent <- df_all$gross_margin / df_all$gross_revenue
+df_all$total_cost <- df_all$cost + df_all$affiliate_cost
+df_all$CvR <- df_all$orders / df_all$session
+write.csv(df_all, file = "df_all.csv")
+
+###
+### Group data frame by brand to plot clean later-on
+###
+
+macro_brand <- df_all %>% dplyr::select(date, orders, brand, session, gross_revenue, gross_margin, cost, affiliate_cost)
+macro_brand <- macro_brand %>%
+  group_by(date, brand) %>%
+  summarise_all(funs(sum))
+
+### Aggregated sum
+
+macro_brand$gm_per_cent <- macro_brand$gross_margin / macro_brand$gross_revenue
+macro_brand$total_cost <- macro_brand$cost + macro_brand$affiliate_cost
+macro_brand$CvR <- macro_brand$orders / macro_brand$session
+macro_brand$CiR <- macro_brand$total_cost / macro_brand$gross_revenue
+macro_brand$CPV <- macro_brand$total_cost / macro_brand$session
+macro_brand[is.na(macro_brand)] <- 0
+
+
+
+#### clean nice function to retrieve median pre-covid
+
+get_brand_data_pre <- function(macro_brand, brand_name){
+  brand_data <- macro_brand %>% filter(date> "2020-01-01" & date<"2020-03-21")
+  brand_data <- macro_brand %>% filter(brand %in% brand_name)
+  brand_data$median_orders <- median(brand_data$orders)
+  brand_data$median_sessions <- median(brand_data$session)
+  brand_data$median_gross_revenue <- median(brand_data$gross_revenue)
+  brand_data$median_CvR <- median(brand_data$CvR)
+  brand_data$median_CiR <- median(brand_data$CiR)
+  brand_data$median_CPV <- median(brand_data$CPV)
+ 
+  
+ 
+  return(brand_data)
+}
+
+
+
+
+bbw <- get_brand_data_pre(macro_brand, "bbw")
+hm <- get_brand_data_pre(macro_brand, "hm")
+mc <- get_brand_data_pre(macro_brand, "mc")
+fl <- get_brand_data_pre(macro_brand, "fl")
+aeo <- get_brand_data_pre(macro_brand, "aeo")
+vs <- get_brand_data_pre(macro_brand, "vs")
+pb <- get_brand_data_pre(macro_brand, "pb")
+
+
+
+
+fig <- plot_ly(bbw, x = ~date, y = ~orders, type = "scatters", mode = 'lines') %>%add_trace(x = ~date, y = ~median_orders, type = 'scatter', mode = 'lines', name = "gross_revenue")
+
+fig
+
+
+
+#### clean nice function to retrieve median covid
+
+
+get_brand_data <- function(macro_brand, brand_name){
+  brand_data <- macro_brand %>% filter(date>"2020-03-20" & date < "2020-04-15")
+  brand_data <- macro_brand %>% filter(brand %in% brand_name)
+  brand_data$median_orders <- median(brand_data$orders)
+  brand_data$median_sessions <- median(brand_data$session)
+  brand_data$median_gross_revenue <- median(brand_data$gross_revenue)
+  brand_data$median_CvR <- median(brand_data$CvR)
+  brand_data$median_CiR <- median(brand_data$CiR)
+  brand_data$median_CPV <- median(brand_data$CPV)
+  
+  return(brand_data)
+}
+
+
+
+bbw <- get_brand_data(macro_brand, "bbw")
+hm <- get_brand_data(macro_brand, "hm")
+mc <- get_brand_data(macro_brand, "mc")
+fl <- get_brand_data(macro_brand, "fl")
+aeo <- get_brand_data(macro_brand, "aeo")
+vs <- get_brand_data(macro_brand, "vs")
+pb <- get_brand_data(macro_brand, "pb")
+
+
+
