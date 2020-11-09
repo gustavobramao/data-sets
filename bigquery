@@ -1,0 +1,1 @@
+SELECT Count(totals.hits) as hits FROM `authentic-codex-225113.176008893.ga_sessions_*` where _TABLE_SUFFIX BETWEEN "20201028" AND "20201031" and trafficSource.campaign = "bbw_ksa_fb_all_1_prospecting_n_oct20_28titbi_sess"   
